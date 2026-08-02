@@ -220,7 +220,51 @@
     color:var(--text); font-family:'IBM Plex Mono', monospace; font-size:12.5px;
     padding:10px; line-height:1.6;
   }
-  .paste-actions{ margin-top:10px; display:flex; gap:8px; }
+  .paste-actions{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+
+  /* ---------- Colar: leitura por imagem ---------- */
+  .image-import-block{ margin-bottom:20px; }
+  .image-drop-zone{
+    display:flex; align-items:center; gap:14px; cursor:pointer;
+    background:var(--panel-2); border:1.5px dashed var(--line); border-radius:10px;
+    padding:16px; transition:border-color .15s ease, background .15s ease;
+  }
+  .image-drop-zone:hover, .image-drop-zone:focus-visible, .image-drop-zone.drag-over{
+    border-color:var(--x-color); background:rgba(47,216,168,0.07);
+  }
+  .image-drop-icon{ font-size:24px; flex-shrink:0; line-height:1; }
+  .image-drop-text{ font-size:12px; color:var(--muted); line-height:1.6; }
+  .image-drop-text strong{ color:var(--text); }
+  .image-preview-wrap{ margin-top:12px; }
+  .image-preview-wrap img{
+    display:block; max-width:100%; max-height:240px; border-radius:8px;
+    border:1px solid var(--line); background:var(--panel-2);
+  }
+  .image-status{ margin-top:10px; font-size:11.5px; padding:8px 10px; border-radius:6px; line-height:1.5; }
+  .image-status.busy{ color:var(--y-color); background:rgba(245,168,60,0.09); }
+  .image-status.ok{ color:var(--pos); background:rgba(47,216,168,0.09); }
+  .image-status.erro{ color:var(--neg); background:rgba(239,95,111,0.09); }
+
+  .paste-divider{
+    display:flex; align-items:center; gap:10px; margin:20px 0 14px;
+    color:var(--muted); font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em;
+  }
+  .paste-divider::before, .paste-divider::after{ content:''; flex:1; height:1px; background:var(--line); }
+
+  .pending-row .pending-meta{ color:var(--muted); font-size:11px; min-width:64px; text-align:right; white-space:nowrap; }
+  .pending-warn{ margin-left:5px; cursor:help; }
+  .pending-name-input{
+    background:var(--panel-2); border:1px solid var(--line); border-radius:5px;
+    color:var(--text); font-family:'IBM Plex Mono', monospace; font-size:12px;
+    padding:5px 7px; width:100%; min-width:0;
+  }
+  .pending-name-input:focus{ border-color:var(--x-color); }
+  .pending-value-input{
+    background:var(--panel-2); border:1px solid var(--line); border-radius:5px;
+    color:var(--text); font-family:'IBM Plex Mono', monospace; font-size:12px;
+    padding:5px 6px; width:54px; text-align:center;
+  }
+  .pending-value-input:focus{ border-color:var(--x-color); }
 
   .pending-panel{
     margin-top:16px; background:var(--panel-2); border:1px solid var(--y-color); border-radius:10px;
@@ -492,6 +536,28 @@
         </div>
 
         <div id="launch-view-paste" style="display:none;">
+          <div class="image-import-block">
+            <div class="panel-hint" style="margin-top:0;">Envie um print do ranking (ex.: Simco Tools) já ordenado por % de crescimento — a IA lê a colocação de cada empresa (gratuito, via Gemini) e calcula a pontuação sozinha pela Regra de Pontuação: 1º lugar 10 pts, decrescendo 1 a 1 até o 10º (1 pt); 11º sempre 0; do 12º em diante fica negativo — decrescendo 1 a 1 se a faixa tiver até 14 participantes, ou escalonado de 2 em 2 posições (-1,-1,-2,-2,-3,-3...) se tiver 15 ou mais. Leia uma imagem por faixa; se X e Y forem do mesmo dia, depois de lançar a primeira leitura, leia a segunda e troque "Aplicar em" para o mesmo dia antes de confirmar. <strong>Confira sempre os dados antes de lançar</strong> — dá pra corrigir nome e pontuação direto na lista.</div>
+            <div id="image-drop-zone" class="image-drop-zone" tabindex="0" role="button" aria-label="Selecionar ou colar imagem do ranking" onclick="document.getElementById('ranking-image-input').click()">
+              <div class="image-drop-icon">🖼️</div>
+              <div class="image-drop-text">
+                <strong>Clique para escolher uma imagem</strong><br>
+                ou arraste um print aqui, ou cole com <strong>Ctrl+V</strong>
+              </div>
+              <input type="file" id="ranking-image-input" accept="image/*" class="hidden">
+            </div>
+            <div id="image-preview-wrap" class="image-preview-wrap hidden">
+              <img id="image-preview" alt="Pré-visualização da imagem do ranking">
+              <div class="paste-actions">
+                <button type="button" id="ler-imagem-btn" onclick="lerImagemRanking()">🔎 Ler imagem</button>
+                <button type="button" class="danger" onclick="limparImagemRanking()">Remover imagem</button>
+              </div>
+              <div id="image-status" class="image-status hidden"></div>
+            </div>
+          </div>
+
+          <div class="paste-divider"><span>ou cole o texto</span></div>
+
           <div class="panel-hint" style="margin-top:0;">Um participante por vez, separados por <strong>ponto e vírgula</strong> ou por <strong>linha</strong>, no formato <strong>Nome, Pontuação</strong>. Exemplo: <em>João, 8; Maria, -1; Pedro, -1;</em> — também funciona colando um embaixo do outro. Depois de ler, escolha se é um dia novo ou se vai substituir um dia já lançado, e confira a faixa de cada participante antes de confirmar.</div>
           <textarea id="paste-area" placeholder="João, 8;&#10;Maria, -1;&#10;Pedro, -1;"></textarea>
           <div class="paste-actions">
@@ -688,6 +754,7 @@ let state = { days: 0, x: [], y: [] };
 let loaded = false;
 let pendingImport = null;
 let pendingDayMode = 'new';
+let imagemRankingSelecionada = null; // { base64, mediaType } — imagem escolhida/colada, aguardando leitura
 
 // rascunho (não salvo) do formulário de lançamento do dia
 let draft = { x:{}, y:{} };
@@ -1001,6 +1068,193 @@ function processPaste(){
   }
 }
 
+
+/* ---------- Leitura por imagem (print do ranking) ---------- */
+function inicializarImportacaoPorImagem(){
+  const dropZone = document.getElementById('image-drop-zone');
+  const input = document.getElementById('ranking-image-input');
+  if(!dropZone || !input || dropZone.dataset.bound) return;
+  dropZone.dataset.bound = '1';
+
+  input.addEventListener('change', (e)=>{
+    if(e.target.files && e.target.files[0]) carregarArquivoImagem(e.target.files[0]);
+  });
+
+  dropZone.addEventListener('dragover', (e)=>{ e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', (e)=>{
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const arquivo = e.dataTransfer.files && e.dataTransfer.files[0];
+    if(arquivo && arquivo.type && arquivo.type.startsWith('image/')) carregarArquivoImagem(arquivo);
+  });
+
+  dropZone.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); input.click(); }
+  });
+
+  // cola (Ctrl+V) de uma imagem em qualquer lugar, mas só reage se a aba
+  // "Lançar > Colar" estiver de fato visível na tela nesse momento.
+  document.addEventListener('paste', tratarColagemImagem);
+}
+
+function tratarColagemImagem(e){
+  const viewLancar = document.getElementById('view-lancar');
+  const launchCard = document.getElementById('launch-card');
+  const pasteView = document.getElementById('launch-view-paste');
+  if(!viewLancar || viewLancar.classList.contains('hidden')) return;
+  if(!launchCard || launchCard.classList.contains('hidden')) return;
+  if(!pasteView || pasteView.style.display === 'none') return;
+
+  const itens = (e.clipboardData && e.clipboardData.items) || [];
+  for(let i = 0; i < itens.length; i++){
+    if(itens[i].type && itens[i].type.startsWith('image/')){
+      const arquivo = itens[i].getAsFile();
+      if(arquivo){ e.preventDefault(); carregarArquivoImagem(arquivo); }
+      return;
+    }
+  }
+}
+
+function carregarArquivoImagem(arquivo){
+  if(!arquivo.type || !arquivo.type.startsWith('image/')){
+    alert('Selecione um arquivo de imagem (PNG, JPG, etc.).');
+    return;
+  }
+  const leitor = new FileReader();
+  leitor.onload = () => {
+    const dataUrl = leitor.result;
+    const img = new Image();
+    img.onload = () => {
+      const LIMITE_BORDA = 2200;
+      const precisaRedimensionar = img.width > LIMITE_BORDA || img.height > LIMITE_BORDA || arquivo.size > 8 * 1024 * 1024;
+      if(!precisaRedimensionar){
+        const m = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/);
+        if(!m){ alert('Não consegui ler essa imagem.'); return; }
+        imagemRankingSelecionada = { base64: m[2], mediaType: m[1] };
+        mostrarPreviewImagem(dataUrl);
+        return;
+      }
+      // imagem grande demais: redimensiona mantendo proporção e legibilidade do texto
+      const escala = Math.min(LIMITE_BORDA / img.width, LIMITE_BORDA / img.height, 1);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * escala);
+      canvas.height = Math.round(img.height * escala);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const dataUrlRedimensionada = canvas.toDataURL('image/png');
+      const m2 = dataUrlRedimensionada.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/);
+      if(!m2){ alert('Não consegui processar essa imagem.'); return; }
+      imagemRankingSelecionada = { base64: m2[2], mediaType: m2[1] };
+      mostrarPreviewImagem(dataUrlRedimensionada);
+    };
+    img.onerror = () => alert('Não consegui abrir essa imagem.');
+    img.src = dataUrl;
+  };
+  leitor.onerror = () => alert('Não consegui ler essa imagem.');
+  leitor.readAsDataURL(arquivo);
+}
+
+function mostrarPreviewImagem(dataUrl){
+  document.getElementById('image-preview').src = dataUrl;
+  document.getElementById('image-preview-wrap').classList.remove('hidden');
+  esconderStatusImagem();
+}
+
+function limparImagemRanking(){
+  imagemRankingSelecionada = null;
+  const wrap = document.getElementById('image-preview-wrap');
+  const preview = document.getElementById('image-preview');
+  const input = document.getElementById('ranking-image-input');
+  if(wrap) wrap.classList.add('hidden');
+  if(preview) preview.src = '';
+  if(input) input.value = '';
+  esconderStatusImagem();
+}
+
+function mostrarStatusImagem(texto, tipo){
+  const el = document.getElementById('image-status');
+  if(!el) return;
+  el.textContent = texto;
+  el.className = 'image-status ' + tipo;
+  el.classList.remove('hidden');
+}
+function esconderStatusImagem(){
+  const el = document.getElementById('image-status');
+  if(el) el.classList.add('hidden');
+}
+
+function escapeHtml(str){
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Recebe a lista de participantes já com pontuação calculada (vinda da leitura
+// por imagem) e alimenta o mesmo painel de confirmação usado pela colagem de texto.
+function preencherPendingComParticipantes(participantes){
+  pendingImport = participantes.map(p=>{
+    const known = findDivision(p.nome);
+    return {
+      name: p.nome,
+      value: p.pontuacao,
+      knownDiv: known,
+      div: known || p.divisaoSugerida || 'x',
+      posicao: p.posicao,
+      changePercent: p.changePercent,
+      valor: p.valor
+    };
+  });
+  pendingDayMode = 'new';
+  renderPending();
+}
+
+function avisoLinhasIgnoradas(resposta){
+  const ignoradas = (resposta.dados && resposta.dados.linhasIgnoradas) || 0;
+  const texto = ignoradas > 0
+    ? ` ⚠️ ${ignoradas} linha(s) não deu(ram) pra identificar e ficaram de fora — confira o total de participantes antes de lançar.`
+    : '';
+  return { texto, tipo: ignoradas > 0 ? 'erro' : 'ok' };
+}
+
+async function lerImagemRanking(){
+  if(!exigirModoEdicao()) return;
+  if(!imagemRankingSelecionada){ alert('Escolha ou cole uma imagem primeiro.'); return; }
+  if(pendingImport && pendingImport.length){
+    const ok = confirm('Já existe uma leitura pendente, ainda não lançada. Substituir pelos dados dessa imagem?');
+    if(!ok) return;
+  }
+  const btn = document.getElementById('ler-imagem-btn');
+  definirCarregando(btn, true, '🔎 Ler imagem');
+  mostrarStatusImagem('Lendo a imagem... isso pode levar alguns segundos.', 'busy');
+  try{
+    const resposta = await chamarAPI({
+      action: 'lerImagemRanking',
+      token: modoAdmin.token,
+      imagemBase64: imagemRankingSelecionada.base64,
+      mediaType: imagemRankingSelecionada.mediaType
+    });
+    if(!resposta.sucesso){
+      if(tratarErroSessao(resposta.erro)) return;
+      mostrarStatusImagem(resposta.erro || 'Não consegui ler essa imagem.', 'erro');
+      return;
+    }
+    const participantes = (resposta.dados && resposta.dados.participantes) || [];
+    if(!participantes.length){
+      mostrarStatusImagem('Nenhuma empresa foi identificada nessa imagem.', 'erro');
+      return;
+    }
+    preencherPendingComParticipantes(participantes);
+    const aviso = avisoLinhasIgnoradas(resposta);
+    mostrarStatusImagem('✓ ' + participantes.length + ' empresa(s) lida(s) — confira os dados abaixo antes de lançar.' + aviso.texto, aviso.tipo);
+  }catch(erro){
+    console.error(erro);
+    mostrarStatusImagem('Erro de conexão ao ler a imagem.', 'erro');
+  }finally{
+    definirCarregando(btn, false, '🔎 Ler imagem');
+  }
+}
+
 function populatePendingDaySelect(){
   const sel = document.getElementById('pending-day-select');
   if(!sel) return;
@@ -1033,9 +1287,23 @@ function renderPending(){
     const tag = e.knownDiv
       ? `<span class="tag-known">já em Faixa ${e.knownDiv.toUpperCase()}</span>`
       : `<span class="tag-known" style="color:var(--y-color);">novo</span>`;
+    const temMeta = e.changePercent !== undefined && e.changePercent !== null;
+    let avisoOrdem = '';
+    if(temMeta && i > 0){
+      const anterior = pendingImport[i-1];
+      if(anterior && anterior.changePercent !== undefined && anterior.changePercent !== null && e.changePercent > anterior.changePercent){
+        avisoOrdem = `<span class="pending-warn" title="A % de crescimento subiu em relação à linha anterior — confira essa linha no print original.">⚠️</span>`;
+      }
+    }
+    const meta = temMeta
+      ? `<span class="pending-meta">${e.posicao ? e.posicao + 'º · ' : ''}${e.changePercent > 0 ? '+' : ''}${e.changePercent}%</span>`
+      : '';
     return `<div class="pending-row">
-      <span class="pname">${e.name}</span>
-      <span class="pval ${valClass}">${scoreTag(e.value)}</span>
+      <span class="pname">
+        <input type="text" class="pending-name-input" value="${escapeHtml(e.name)}" onchange="pendingImport[${i}].name=this.value; renderPending();">${avisoOrdem}
+      </span>
+      ${meta}
+      <input type="number" step="1" class="pval pending-value-input ${valClass}" value="${e.value}" onchange="pendingImport[${i}].value=parseFloat(this.value)||0; renderPending();">
       ${tag}
       <select onchange="pendingImport[${i}].div=this.value">
         <option value="x" ${e.div==='x'?'selected':''}>Faixa X</option>
@@ -1080,6 +1348,7 @@ function confirmImport(){
   pendingDayMode = 'new';
   document.getElementById('pending-panel').style.display = 'none';
   document.getElementById('paste-area').value = '';
+  limparImagemRanking();
   switchLaunchTab('form');
   saveState(); render();
   autoSalvarResumoDoDia(dayIdx);
@@ -1682,6 +1951,7 @@ function iniciarApp(){
     toggleSidebarCollapse();
   }
   atualizarBarraIdentidade();
+  inicializarImportacaoPorImagem();
   loadState();
 }
 
