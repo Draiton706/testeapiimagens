@@ -702,8 +702,7 @@
    CONFIGURAÇÃO DA API (Google Apps Script)
    Cole aqui a URL gerada ao implantar o Code.gs como Web App (veja o guia).
    ====================================================================== */
-const API_URL = 'https://script.google.com/macros/s/AKfycby9Z_NvWzhR5KJwZrBFYGDObSWizFZXvOG15fLK1pELGX64Gtz1zCkMzznYm-AK2DFM1w/exec';
-
+const API_URL = 'https://script.google.com/macros/s/AKfycbzLIyjVve0kqiNikeTj0nkLe5xxnFrNe_DfcnYCpmCiSZq5-pEd8qv_8Ui4K2N0JvSn/exec';
 async function chamarAPI(payload){
   const resposta = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
   if(!resposta.ok) throw new Error('Erro de rede (HTTP ' + resposta.status + ')');
