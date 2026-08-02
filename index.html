@@ -1,0 +1,1965 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ranking — Faixa X / Faixa Y</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #12161d;
+    --panel: #1a2029;
+    --panel-2: #212938;
+    --panel-3: #262f40;
+    --line: #2a3242;
+    --text: #e7ecf2;
+    --muted: #8892a3;
+    --x-color: #2fd8a8;
+    --x-dim: #1a4a3f;
+    --y-color: #f5a83c;
+    --y-dim: #4a3a1a;
+    --neg: #ef5f6f;
+    --pos: #2fd8a8;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'IBM Plex Mono', monospace;
+  }
+  :focus-visible{ outline:2px solid var(--x-color); outline-offset:2px; }
+  .hidden{ display:none !important; }
+
+  /* ---------- Casca do app: sidebar + conteúdo ---------- */
+  .app-shell{ display:flex; align-items:stretch; min-height:100vh; max-width:1440px; margin:0 auto; }
+
+  .sidebar{
+    width:238px; flex-shrink:0; background:var(--panel); border-right:1px solid var(--line);
+    position:sticky; top:0; align-self:flex-start; height:100vh; overflow-y:auto;
+    transition:width .18s ease; z-index:20;
+  }
+  .sidebar.collapsed{ width:64px; }
+  .sidebar-head{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:16px 14px; border-bottom:1px solid var(--line);
+  }
+  .sidebar-brand{
+    font-family:'Oswald',sans-serif; font-weight:700; text-transform:uppercase;
+    letter-spacing:0.05em; font-size:13px; white-space:nowrap; overflow:hidden;
+  }
+  .sidebar.collapsed .sidebar-brand{ display:none; }
+  .sidebar-collapse-btn{
+    background:none; border:1px solid var(--line); border-radius:6px; color:var(--muted);
+    width:26px; height:26px; flex-shrink:0; cursor:pointer; font-size:12px; padding:0;
+  }
+  .sidebar-collapse-btn:hover{ border-color:var(--x-color); color:var(--text); }
+  .sidebar-nav{ display:flex; flex-direction:column; padding:10px 0; }
+  .side-link{
+    display:flex; align-items:center; gap:12px; padding:11px 16px; width:100%;
+    background:none; border:none; border-left:3px solid transparent; border-radius:0;
+    color:var(--muted); font-family:'IBM Plex Mono', monospace; font-size:12px;
+    text-align:left; cursor:pointer;
+  }
+  .side-link:hover{ color:var(--text); background:var(--panel-2); }
+  .side-link.active{ color:var(--text); border-left-color:var(--x-color); background:var(--panel-2); font-weight:600; }
+  .side-icon{ font-size:15px; width:18px; text-align:center; flex-shrink:0; }
+  .sidebar.collapsed .side-label{ display:none; }
+  .sidebar.collapsed .side-link{ justify-content:center; padding:11px 0; }
+
+  .sidebar-overlay{ display:none; }
+  .sidebar-toggle-mobile{ display:none; }
+
+  .main{ flex:1; min-width:0; padding:22px 24px 60px; }
+
+  .topbar{
+    position:relative; display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+    max-width:1100px; margin:0 auto 22px; padding-bottom:16px; border-bottom:1px solid var(--line);
+  }
+  .topbar-title-wrap{ flex:1; min-width:170px; }
+  .topbar-title{
+    font-family:'Oswald',sans-serif; font-weight:700; text-transform:uppercase;
+    letter-spacing:0.05em; font-size:20px; margin:0 0 4px;
+  }
+  .status-line{ font-size:11px; color:var(--muted); display:inline-flex; align-items:center; gap:6px; }
+  .status-dot{ width:7px; height:7px; border-radius:50%; background:var(--x-color); display:inline-block; }
+
+  .identity-bar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:11.5px; }
+  .identity-status{ color:var(--muted); white-space:nowrap; }
+  .identity-unlocked{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .identity-unlocked select, .identity-unlocked input{
+    background:var(--panel-2); color:var(--text); border:1px solid var(--line); border-radius:6px;
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px; padding:6px 8px;
+  }
+  .admin-form-popover{
+    position:absolute; top:100%; right:0; margin-top:8px;
+    background:var(--panel-2); border:1px solid var(--line); border-radius:10px;
+    padding:16px; width:260px; z-index:30; box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  }
+
+  .view{ max-width:1100px; margin:0 auto; }
+
+  @media (max-width:880px){
+    .sidebar{
+      position:fixed; left:-100%; top:0; bottom:0; width:250px; height:100vh;
+      transition:left .22s ease; box-shadow:4px 0 24px rgba(0,0,0,0.5);
+    }
+    .sidebar.open{ left:0; }
+    .sidebar.collapsed{ width:250px; }
+    .sidebar.collapsed .side-label{ display:inline; }
+    .sidebar.collapsed .sidebar-brand{ display:inline; }
+    .sidebar.collapsed .side-link{ justify-content:flex-start; padding:11px 16px; }
+    .sidebar-overlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:19; }
+    .sidebar-overlay.show{ display:block; }
+    .sidebar-toggle-mobile{
+      display:inline-flex; align-items:center; justify-content:center;
+      width:34px; height:34px; background:var(--panel-2); border:1px solid var(--line);
+      border-radius:8px; color:var(--text); font-size:16px; cursor:pointer; flex-shrink:0;
+    }
+    .main{ padding:16px 14px 50px; }
+    .admin-form-popover{ right:0; left:0; width:auto; }
+  }
+
+  /* ---------- Painéis genéricos ---------- */
+  .panel{
+    max-width:1100px; margin:0 auto 20px;
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:18px 20px;
+  }
+  .panel.accent-x{ border-top:3px solid var(--x-color); }
+  .panel.accent-y{ border-top:3px solid var(--y-color); }
+  .panel-title{
+    font-family:'Oswald',sans-serif; font-weight:600; text-transform:uppercase;
+    letter-spacing:0.05em; font-size:14.5px; margin-bottom:4px;
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  }
+  .panel-title .day-tag{
+    font-family:'IBM Plex Mono', monospace; text-transform:none; letter-spacing:0;
+    font-weight:500; font-size:11.5px; color:var(--muted);
+    background:var(--panel-2); border:1px solid var(--line); border-radius:20px; padding:2px 10px;
+  }
+  .panel-hint{ color:var(--muted); font-size:11.5px; margin-bottom:14px; line-height:1.55; }
+  .refresh-btn{ background:none; border:none; color:var(--muted); cursor:pointer; font-size:12px; padding:0; margin-left:auto; }
+  .refresh-btn:hover{ color:var(--x-color); }
+
+  .locked-msg{
+    color:var(--muted); font-size:12px; background:var(--panel-2); border:1px dashed var(--line);
+    border-radius:8px; padding:10px 12px; margin-bottom:12px;
+  }
+
+  /* ---------- Lançar dia: abas ---------- */
+  .launch-tabs{ display:flex; gap:6px; margin-bottom:16px; }
+  .launch-tab{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--muted);
+    padding:8px 14px; border-radius:8px; font-family:'IBM Plex Mono', monospace;
+    font-size:12px; font-weight:600; cursor:pointer;
+  }
+  .launch-tab.active{ color:var(--text); border-color:var(--x-color); background:rgba(47,216,168,0.10); }
+  .launch-tab:hover{ border-color:var(--x-color); }
+
+  .launch-columns{ display:grid; grid-template-columns:1fr 1fr; gap:26px; }
+  @media (max-width:760px){ .launch-columns{ grid-template-columns:1fr; gap:20px; } }
+
+  .launch-col-head{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:6px; padding-bottom:8px; border-bottom:1px solid var(--line);
+  }
+  .launch-col-title{
+    font-family:'Oswald',sans-serif; font-weight:600; text-transform:uppercase;
+    font-size:12.5px; letter-spacing:0.05em;
+  }
+  .launch-col.x .launch-col-title{ color:var(--x-color); }
+  .launch-col.y .launch-col-title{ color:var(--y-color); }
+  .launch-col-count{ color:var(--muted); font-size:10.5px; }
+
+  .launch-list{ max-height:400px; overflow-y:auto; padding-right:6px; scrollbar-width:thin; }
+  .launch-list::-webkit-scrollbar{ width:8px; }
+  .launch-list::-webkit-scrollbar-track{ background:transparent; }
+  .launch-list::-webkit-scrollbar-thumb{ background:var(--line); border-radius:6px; }
+
+  .launch-row{
+    display:flex; align-items:center; gap:10px; padding:7px 0;
+    border-bottom:1px solid var(--line); font-size:12.5px;
+  }
+  .launch-row:last-child{ border-bottom:none; }
+  .launch-name{ flex:1; font-weight:600; }
+  .launch-input{
+    width:66px; background:var(--panel-2); border:1px solid var(--line); border-radius:6px;
+    color:var(--text); text-align:center; font-family:'IBM Plex Mono', monospace; font-size:13px;
+    padding:7px 4px;
+  }
+  .launch-input:focus{ outline:1px solid var(--x-color); }
+  .launch-input.val-pos{ color:var(--pos); border-color:var(--x-dim); }
+  .launch-input.val-neg{ color:var(--neg); border-color:#4a2229; }
+
+  .launch-row-new{ padding-top:8px; }
+  .launch-name-input{
+    flex:1; min-width:0; background:var(--panel-2); border:1px dashed var(--line); border-radius:6px;
+    color:var(--text); font-family:'IBM Plex Mono', monospace; font-size:12.5px; padding:7px 9px;
+  }
+  .launch-add-row{ margin-top:10px; }
+  .launch-add-row button{ font-size:11px; padding:6px 10px; }
+
+  .launch-footer{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    margin-top:18px; padding-top:14px; border-top:1px dashed var(--line); flex-wrap:wrap;
+  }
+  .launch-progress{ color:var(--muted); font-size:11.5px; }
+  .launch-submit{
+    background:var(--x-color); color:#0b1310; border:1px solid var(--x-color); font-weight:700;
+    padding:10px 22px; border-radius:8px; font-size:12.5px; letter-spacing:0.03em; cursor:pointer;
+  }
+  .launch-submit:hover{ filter:brightness(1.08); }
+  .launch-submit:disabled{ opacity:0.6; cursor:not-allowed; filter:none; }
+
+  /* ---------- Colar ---------- */
+  #paste-area{
+    width:100%; min-height:100px; resize:vertical;
+    background:var(--panel-2); border:1px solid var(--line); border-radius:6px;
+    color:var(--text); font-family:'IBM Plex Mono', monospace; font-size:12.5px;
+    padding:10px; line-height:1.6;
+  }
+  .paste-actions{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+
+  /* ---------- Colar: leitura por imagem ---------- */
+  .image-import-block{ margin-bottom:20px; }
+  .image-drop-zone{
+    display:flex; align-items:center; gap:14px; cursor:pointer;
+    background:var(--panel-2); border:1.5px dashed var(--line); border-radius:10px;
+    padding:16px; transition:border-color .15s ease, background .15s ease;
+  }
+  .image-drop-zone:hover, .image-drop-zone:focus-visible, .image-drop-zone.drag-over{
+    border-color:var(--x-color); background:rgba(47,216,168,0.07);
+  }
+  .image-drop-icon{ font-size:24px; flex-shrink:0; line-height:1; }
+  .image-drop-text{ font-size:12px; color:var(--muted); line-height:1.6; }
+  .image-drop-text strong{ color:var(--text); }
+  .image-preview-wrap{ margin-top:12px; }
+  .image-preview-wrap img{
+    display:block; max-width:100%; max-height:240px; border-radius:8px;
+    border:1px solid var(--line); background:var(--panel-2);
+  }
+  .image-status{ margin-top:10px; font-size:11.5px; padding:8px 10px; border-radius:6px; line-height:1.5; }
+  .image-status.busy{ color:var(--y-color); background:rgba(245,168,60,0.09); }
+  .image-status.ok{ color:var(--pos); background:rgba(47,216,168,0.09); }
+  .image-status.erro{ color:var(--neg); background:rgba(239,95,111,0.09); }
+
+  .paste-divider{
+    display:flex; align-items:center; gap:10px; margin:20px 0 14px;
+    color:var(--muted); font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em;
+  }
+  .paste-divider::before, .paste-divider::after{ content:''; flex:1; height:1px; background:var(--line); }
+
+  .pending-row .pending-meta{ color:var(--muted); font-size:11px; min-width:64px; text-align:right; white-space:nowrap; }
+  .pending-warn{ margin-left:5px; cursor:help; }
+  .pending-name-input{
+    background:var(--panel-2); border:1px solid var(--line); border-radius:5px;
+    color:var(--text); font-family:'IBM Plex Mono', monospace; font-size:12px;
+    padding:5px 7px; width:100%; min-width:0;
+  }
+  .pending-name-input:focus{ border-color:var(--x-color); }
+  .pending-value-input{
+    background:var(--panel-2); border:1px solid var(--line); border-radius:5px;
+    color:var(--text); font-family:'IBM Plex Mono', monospace; font-size:12px;
+    padding:5px 6px; width:54px; text-align:center;
+  }
+  .pending-value-input:focus{ border-color:var(--x-color); }
+
+  .pending-panel{
+    margin-top:16px; background:var(--panel-2); border:1px solid var(--y-color); border-radius:10px;
+    padding:14px 16px;
+  }
+  .pending-title{
+    font-family:'Oswald',sans-serif; font-weight:600; text-transform:uppercase;
+    letter-spacing:0.05em; font-size:13px; margin-bottom:10px; color:var(--y-color);
+  }
+  .pending-row{
+    display:flex; align-items:center; gap:10px; padding:6px 0;
+    border-bottom:1px solid var(--line); font-size:12.5px;
+  }
+  .pending-row .pname{ flex:1; font-weight:600; }
+  .pending-row .pval{ width:50px; text-align:right; }
+  .pending-row .pval.val-pos{ color:var(--pos); }
+  .pending-row .pval.val-neg{ color:var(--neg); }
+  .pending-row select{
+    background:var(--panel-3); color:var(--text); border:1px solid var(--line);
+    border-radius:5px; font-family:'IBM Plex Mono', monospace; font-size:12px; padding:4px 6px;
+  }
+  .pending-row .tag-known{ color:var(--muted); font-size:10.5px; min-width:76px; text-align:right; white-space:nowrap; }
+  .pending-actions{ margin-top:12px; display:flex; gap:8px; }
+  .pending-controls{
+    display:flex; gap:18px; flex-wrap:wrap; align-items:center;
+    margin-bottom:12px; padding-bottom:12px; border-bottom:1px dashed var(--line);
+    font-size:12px; color:var(--muted);
+  }
+  .pending-controls select{
+    background:var(--panel-3); color:var(--text); border:1px solid var(--line);
+    border-radius:5px; font-family:'IBM Plex Mono', monospace; font-size:12px;
+    padding:5px 7px; margin-left:6px;
+  }
+
+  /* ---------- Board de ranking ---------- */
+  .board{ display:grid; grid-template-columns:1fr 1fr; gap:20px; max-width:1100px; margin:0 auto 20px; }
+  @media (max-width:880px){ .board{grid-template-columns:1fr;} }
+
+  .division{ background:var(--panel); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .division-head{ padding:14px 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); }
+  .division.x .division-head{ border-top:3px solid var(--x-color); }
+  .division.y .division-head{ border-top:3px solid var(--y-color); }
+  .division-title{ font-family:'Oswald',sans-serif; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; font-size:15px; }
+  .division.x .division-title{ color:var(--x-color); }
+  .division.y .division-title{ color:var(--y-color); }
+  .division-range{ color:var(--muted); font-size:11px; }
+
+  .table-wrap{ overflow-x:auto; cursor:grab; scrollbar-width:thin; scrollbar-color:var(--x-color) var(--panel-2); }
+  .table-wrap.dragging{ cursor:grabbing; user-select:none; }
+  .table-wrap::-webkit-scrollbar{ height:10px; }
+  .table-wrap::-webkit-scrollbar-track{ background:var(--panel-2); border-radius:6px; }
+  .table-wrap::-webkit-scrollbar-thumb{ background:var(--line); border-radius:6px; }
+  .division.x .table-wrap::-webkit-scrollbar-thumb{ background:var(--x-dim); }
+  .division.y .table-wrap::-webkit-scrollbar-thumb{ background:var(--y-dim); }
+  .table-wrap::-webkit-scrollbar-thumb:hover{ background:var(--x-color); }
+  table{ border-collapse:collapse; width:100%; font-size:12.5px; }
+  th,td{ padding:8px 10px; text-align:center; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th{
+    color:var(--muted); font-weight:500; font-size:10.5px; text-transform:uppercase; letter-spacing:0.04em;
+    position:sticky; top:0; background:var(--panel);
+  }
+  tbody tr:hover td{ background:var(--panel-2); }
+  td.name{
+    text-align:left; font-weight:600; min-width:110px;
+    position:sticky; left:34px; z-index:2; background:var(--panel);
+    box-shadow:2px 0 4px rgba(0,0,0,0.35);
+  }
+  tbody tr:hover td.name, tbody tr:hover td.rank{ background:var(--panel-2); }
+  td.rank{
+    font-family:'Oswald',sans-serif; font-weight:700; color:var(--muted); width:34px;
+    position:sticky; left:0; z-index:2; background:var(--panel);
+  }
+  th.rank-h{ position:sticky; left:0; top:0; z-index:5; background:var(--panel); }
+  th.name-h{ position:sticky; left:34px; top:0; z-index:5; background:var(--panel); box-shadow:2px 0 4px rgba(0,0,0,0.35); }
+  tr.top1 td.rank{ color:#ffd35c; }
+  tr.top2 td.rank{ color:#cfd6e0; }
+  tr.top3 td.rank{ color:#d99a5c; }
+  tr.top1 td.name::before{ content:'🥇 '; }
+  tr.top2 td.name::before{ content:'🥈 '; }
+  tr.top3 td.name::before{ content:'🥉 '; }
+  td.total{ font-weight:700; }
+  .row-btns{ display:flex; gap:4px; justify-content:center; }
+  input.score{
+    width:46px; background:var(--panel-2); border:1px solid var(--line); border-radius:5px;
+    color:var(--text); text-align:center; font-family:'IBM Plex Mono', monospace; font-size:12px; padding:4px 2px;
+  }
+  input.score:focus{ outline:1px solid var(--x-color); }
+  .val-pos{ color:var(--pos); }
+  .val-neg{ color:var(--neg); }
+  .tiebadge{ display:inline-block; margin-left:6px; font-size:9.5px; color:var(--muted); border:1px solid var(--line); border-radius:4px; padding:1px 5px; }
+  .row-actions{ padding:10px 16px; display:flex; gap:8px; border-top:1px solid var(--line); flex-wrap:wrap; }
+  button{
+    background:var(--panel-2); color:var(--text); border:1px solid var(--line); border-radius:6px;
+    padding:7px 12px; font-family:'IBM Plex Mono', monospace; font-size:11.5px; cursor:pointer;
+  }
+  button:hover{ border-color:var(--x-color); }
+  .division.y button:hover{ border-color:var(--y-color); }
+  button.danger:hover{ border-color:var(--neg); }
+  .del-x-btn{ background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 4px; }
+  .del-x-btn:hover{ color:var(--neg); }
+  .del-x-btn:disabled{ opacity:0.35; cursor:not-allowed; }
+  .empty-hint{ padding:16px; color:var(--muted); font-size:12px; text-align:center; }
+  .rules-note{ color:var(--muted); font-size:11px; line-height:1.6; }
+
+  /* ---------- Resumo ---------- */
+  .summary-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .summary-row label{ font-size:12px; color:var(--muted); }
+  .summary-row select{
+    background:var(--panel-2); color:var(--text); border:1px solid var(--line);
+    border-radius:5px; font-family:'IBM Plex Mono', monospace; font-size:12px; padding:6px 8px;
+  }
+  #summary-output{
+    width:100%; min-height:260px; resize:vertical;
+    background:var(--panel-2); border:1px solid var(--line); border-radius:6px;
+    color:var(--text); font-family:'IBM Plex Mono', monospace; font-size:12.5px;
+    padding:12px; line-height:1.55; white-space:pre-wrap;
+  }
+  .copy-flash{ color:var(--pos) !important; border-color:var(--pos) !important; }
+
+  /* ---------- Formulários genéricos (admin / usuários) ---------- */
+  .campo{ display:flex; flex-direction:column; gap:6px; font-size:11.5px; color:var(--muted); }
+  .campo input{
+    background:var(--panel-2); border:1px solid var(--line); border-radius:6px;
+    color:var(--text); font-family:'IBM Plex Mono', monospace; font-size:13px; padding:10px 11px; width:100%;
+  }
+  .campo input:focus{ outline:1px solid var(--x-color); }
+  .auth-form{ display:flex; flex-direction:column; gap:14px; }
+  .auth-form .launch-submit{ width:100%; }
+  .auth-msg{ margin-top:14px; padding:10px 12px; border-radius:8px; font-size:12px; line-height:1.5; border:1px solid var(--line); }
+  .auth-msg.ok{ border-color:var(--pos); color:var(--pos); background:rgba(47,216,168,0.08); }
+  .auth-msg.erro{ border-color:var(--neg); color:var(--neg); background:rgba(239,95,111,0.08); }
+
+  /* ---------- Painel Utilitário / Estatísticas ---------- */
+  .stats-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:12px; }
+  .stat-card{ background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:4px; text-align:center; }
+  .stat-value{ font-family:'Oswald',sans-serif; font-weight:700; font-size:26px; color:var(--x-color); }
+  .stat-value-sm{ font-size:13px; line-height:1.3; }
+  .stat-label{ color:var(--muted); font-size:10.5px; text-transform:uppercase; letter-spacing:0.04em; }
+
+  .day-list{ display:flex; flex-direction:column; }
+  .day-row{ display:flex; align-items:center; justify-content:space-between; padding:9px 4px; border-bottom:1px solid var(--line); font-size:12.5px; }
+  .day-row:last-child{ border-bottom:none; }
+  .day-remove-btn{ font-size:11px; }
+
+  /* ---------- Painel Resumos Salvos ---------- */
+  .resumo-card{ background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:12px; }
+  .resumo-header{ display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+  .resumo-data{ color:var(--muted); font-size:11px; flex:1; }
+  .resumo-body{ white-space:pre-wrap; font-family:'IBM Plex Mono', monospace; font-size:12px; line-height:1.5; margin:0; color:var(--text); }
+
+  /* ---------- Painel Geral de Usuários ---------- */
+  .user-list, .log-list{ display:flex; flex-direction:column; margin-bottom:4px; }
+  .user-row{ display:flex; align-items:center; justify-content:space-between; padding:8px 4px; border-bottom:1px solid var(--line); font-size:12.5px; }
+  .user-row:last-child{ border-bottom:none; }
+  .user-row-name{ font-weight:600; }
+  .add-user-form{ display:flex; gap:8px; margin-top:10px; }
+  .add-user-form input{
+    flex:1; background:var(--panel-2); border:1px dashed var(--line); border-radius:6px;
+    color:var(--text); font-family:'IBM Plex Mono', monospace; font-size:12.5px; padding:8px 10px;
+  }
+  .log-row{ display:flex; gap:10px; padding:7px 4px; border-bottom:1px solid var(--line); font-size:11.5px; flex-wrap:wrap; }
+  .log-row:last-child{ border-bottom:none; }
+  .log-row-data{ color:var(--muted); min-width:132px; }
+  .log-row-usuario{ font-weight:600; color:var(--x-color); }
+  .log-row-acao{ color:var(--text); flex:1; min-width:160px; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebarMobile(false)"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <span class="sidebar-brand">Ranking Geral</span>
+      <button type="button" class="sidebar-collapse-btn" id="sidebar-collapse-btn" onclick="toggleSidebarCollapse()" title="Recolher menu">«</button>
+    </div>
+    <nav class="sidebar-nav">
+      <button type="button" class="side-link active" data-view="lancar" onclick="mostrarView('lancar')">
+        <span class="side-icon">📝</span><span class="side-label">Lançar pontuação do dia</span>
+      </button>
+      <button type="button" class="side-link" data-view="utilitario" onclick="mostrarView('utilitario')">
+        <span class="side-icon">🛠️</span><span class="side-label">Painel Utilitário / Estatísticas</span>
+      </button>
+      <button type="button" class="side-link" data-view="resumos-salvos" onclick="mostrarView('resumos-salvos')">
+        <span class="side-icon">🗂️</span><span class="side-label">Painel Resumos Salvos</span>
+      </button>
+      <button type="button" class="side-link" data-view="faixas" onclick="mostrarView('faixas')">
+        <span class="side-icon">🏁</span><span class="side-label">Faixa X / Faixa Y</span>
+      </button>
+      <button type="button" class="side-link" data-view="resumir" onclick="mostrarView('resumir')">
+        <span class="side-icon">🧾</span><span class="side-label">Resumir Dia / Acumulado</span>
+      </button>
+      <button type="button" class="side-link" data-view="usuarios" onclick="mostrarView('usuarios')">
+        <span class="side-icon">👥</span><span class="side-label">Painel Geral de Usuários</span>
+      </button>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button type="button" class="sidebar-toggle-mobile" onclick="toggleSidebarMobile(true)" aria-label="Abrir menu">☰</button>
+      <div class="topbar-title-wrap">
+        <h1 class="topbar-title">Ranking Geral</h1>
+        <div class="status-line"><span class="status-dot" id="status-dot"></span><span id="sync-status">carregando...</span></div>
+      </div>
+
+      <div class="identity-bar" id="identity-bar">
+        <div class="identity-locked" id="identity-locked">
+          <span class="identity-status">👁️ Modo visualização</span>
+          <button type="button" onclick="toggleAdminForm()">Entrar no modo de edição</button>
+        </div>
+        <div class="identity-unlocked hidden" id="identity-unlocked">
+          <span class="identity-status">✏️ Editando como</span>
+          <select id="seletor-nome-atual" onchange="selecionarNome(this.value)"></select>
+          <input type="text" id="nome-outro" class="hidden" placeholder="Seu nome" onblur="confirmarNomeOutro()" onkeydown="if(event.key==='Enter'){this.blur();}">
+          <button type="button" onclick="handleSairAdmin()">Sair do modo de edição</button>
+        </div>
+      </div>
+
+      <div class="admin-form-popover hidden" id="admin-form-popover">
+        <form class="auth-form" onsubmit="handleEntrarAdmin(event)">
+          <label class="campo"><span>Senha de administrador</span>
+            <input type="password" id="admin-senha-input" required placeholder="••••••••">
+          </label>
+          <button type="submit" class="launch-submit" id="admin-entrar-btn">Entrar</button>
+        </form>
+        <div id="admin-msg" class="auth-msg hidden"></div>
+      </div>
+    </header>
+
+    <!-- ===================== VIEW: Lançar pontuação do dia ===================== -->
+    <section class="view" id="view-lancar">
+      <div id="view-lancar-lock" class="locked-msg">🔒 Entre no modo de edição pra lançar pontuações do dia.</div>
+      <div class="panel accent-x launch-card hidden" id="launch-card">
+        <div class="panel-title">Lançar pontuação do dia <span class="day-tag" id="launch-day-label">Dia —</span></div>
+        <div class="panel-hint">Preencha a pontuação de cada participante para fechar o dia, ou cole os dados prontos de outra fonte.</div>
+
+        <div class="launch-tabs">
+          <button type="button" class="launch-tab active" id="tab-form" onclick="switchLaunchTab('form')">✏️ Preencher</button>
+          <button type="button" class="launch-tab" id="tab-paste" onclick="switchLaunchTab('paste')">📋 Colar</button>
+        </div>
+
+        <div id="launch-view-form">
+          <div class="launch-columns">
+            <div class="launch-col x">
+              <div class="launch-col-head">
+                <span class="launch-col-title">Faixa X</span>
+                <span class="launch-col-count" id="launch-count-x"></span>
+              </div>
+              <div class="launch-list" id="launch-list-x"></div>
+              <div id="launch-new-x"></div>
+              <div class="launch-add-row"><button type="button" onclick="addDraftRow('x')">+ novo participante</button></div>
+            </div>
+            <div class="launch-col y">
+              <div class="launch-col-head">
+                <span class="launch-col-title">Faixa Y</span>
+                <span class="launch-col-count" id="launch-count-y"></span>
+              </div>
+              <div class="launch-list" id="launch-list-y"></div>
+              <div id="launch-new-y"></div>
+              <div class="launch-add-row"><button type="button" onclick="addDraftRow('y')">+ novo participante</button></div>
+            </div>
+          </div>
+          <div class="launch-footer">
+            <span class="launch-progress" id="launch-progress"></span>
+            <button type="button" class="launch-submit" id="launch-submit-btn" onclick="launchDayForm()">Lançar dia</button>
+          </div>
+        </div>
+
+        <div id="launch-view-paste" style="display:none;">
+          <div class="image-import-block">
+            <div class="panel-hint" style="margin-top:0;">Envie um print do ranking (ex.: Simco Tools) já ordenado por % de crescimento — a IA lê a colocação de cada empresa (gratuito, via Gemini) e calcula a pontuação sozinha pela Regra de Pontuação: 1º lugar 10 pts, decrescendo 1 a 1 até o 10º (1 pt); 11º sempre 0; do 12º em diante fica negativo — decrescendo 1 a 1 se a faixa tiver até 14 participantes, ou escalonado de 2 em 2 posições (-1,-1,-2,-2,-3,-3...) se tiver 15 ou mais. Leia uma imagem por faixa; se X e Y forem do mesmo dia, depois de lançar a primeira leitura, leia a segunda e troque "Aplicar em" para o mesmo dia antes de confirmar. <strong>Confira sempre os dados antes de lançar</strong> — dá pra corrigir nome e pontuação direto na lista.</div>
+            <div id="image-drop-zone" class="image-drop-zone" tabindex="0" role="button" aria-label="Selecionar ou colar imagem do ranking" onclick="document.getElementById('ranking-image-input').click()">
+              <div class="image-drop-icon">🖼️</div>
+              <div class="image-drop-text">
+                <strong>Clique para escolher uma imagem</strong><br>
+                ou arraste um print aqui, ou cole com <strong>Ctrl+V</strong>
+              </div>
+              <input type="file" id="ranking-image-input" accept="image/*" class="hidden">
+            </div>
+            <div id="image-preview-wrap" class="image-preview-wrap hidden">
+              <img id="image-preview" alt="Pré-visualização da imagem do ranking">
+              <div class="paste-actions">
+                <button type="button" id="ler-imagem-btn" onclick="lerImagemRanking()">🔎 Ler imagem</button>
+                <button type="button" class="danger" onclick="limparImagemRanking()">Remover imagem</button>
+              </div>
+              <div id="image-status" class="image-status hidden"></div>
+            </div>
+          </div>
+
+          <div class="paste-divider"><span>ou cole o texto</span></div>
+
+          <div class="panel-hint" style="margin-top:0;">Um participante por vez, separados por <strong>ponto e vírgula</strong> ou por <strong>linha</strong>, no formato <strong>Nome, Pontuação</strong>. Exemplo: <em>João, 8; Maria, -1; Pedro, -1;</em> — também funciona colando um embaixo do outro. Depois de ler, escolha se é um dia novo ou se vai substituir um dia já lançado, e confira a faixa de cada participante antes de confirmar.</div>
+          <textarea id="paste-area" placeholder="João, 8;&#10;Maria, -1;&#10;Pedro, -1;"></textarea>
+          <div class="paste-actions">
+            <button onclick="processPaste()">Ler colagem</button>
+          </div>
+          <div class="pending-panel" id="pending-panel" style="display:none;">
+            <div class="pending-title">Confirmar lançamento dos dados colados</div>
+            <div class="pending-controls">
+              <label>Aplicar em: <select id="pending-day-select"></select></label>
+              <label>Faixa para todos: <select id="pending-bulk-div" onchange="applyBulkDiv(this.value)">
+                <option value="">— escolher —</option>
+                <option value="x">Faixa X</option>
+                <option value="y">Faixa Y</option>
+              </select></label>
+            </div>
+            <div id="pending-list"></div>
+            <div class="pending-actions">
+              <button onclick="confirmImport()">Lançar</button>
+              <button class="danger" onclick="cancelImport()">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== VIEW: Painel Utilitário / Estatísticas ===================== -->
+    <section class="view hidden" id="view-utilitario">
+      <div class="panel">
+        <div class="panel-title">Estatísticas gerais</div>
+        <div class="stats-grid" id="stats-grid"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Gerenciar dias lançados</div>
+        <div class="panel-hint">Remova um dia específico se ele foi lançado por engano — os dias seguintes são renumerados automaticamente.</div>
+        <div id="dias-lock" class="locked-msg hidden">🔒 Entre no modo de edição pra remover um dia.</div>
+        <div class="day-list" id="day-list"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Regras aplicadas</div>
+        <div class="rules-note">Ganho máximo diário +10 · critério 1 — maior pontuação acumulada · critério 2+ — compara o resultado do dia mais recente e retrocede um dia por vez até achar diferença · 0 &gt; -1 &gt; -2, um -2 nunca fica acima de um -1 no mesmo dia comparado.</div>
+      </div>
+    </section>
+
+    <!-- ===================== VIEW: Painel Resumos Salvos ===================== -->
+    <section class="view hidden" id="view-resumos-salvos">
+      <div class="panel">
+        <div class="panel-title">Resumos salvos <button type="button" class="refresh-btn" onclick="carregarResumosSeNecessario(true)" title="Atualizar">🔄 atualizar</button></div>
+        <div class="panel-hint">Histórico protegido — fica registrado numa aba própria da planilha e não é apagado mesmo se o ranking do dia a dia for limpo ou reiniciado.</div>
+        <div id="resumos-salvos-lista"><div class="empty-hint">Carregando...</div></div>
+      </div>
+    </section>
+
+    <!-- ===================== VIEW: Faixa X / Faixa Y ===================== -->
+    <section class="view hidden" id="view-faixas">
+      <div class="board">
+        <div class="division x" id="div-x">
+          <div class="division-head">
+            <div>
+              <div class="division-title">Faixa X</div>
+              <div class="division-range">0 a 19.999M</div>
+            </div>
+          </div>
+          <div class="table-wrap"><table><thead><tr id="head-x"></tr></thead><tbody id="body-x"></tbody></table></div>
+          <div class="empty-hint" id="empty-x" style="display:none;">Nenhum participante ainda.</div>
+          <div class="row-actions hidden">
+            <button onclick="addParticipant('x')">+ Participante</button>
+            <button onclick="addDay()">+ Dia em branco</button>
+          </div>
+        </div>
+
+        <div class="division y" id="div-y">
+          <div class="division-head">
+            <div>
+              <div class="division-title">Faixa Y</div>
+              <div class="division-range">20M ou mais</div>
+            </div>
+          </div>
+          <div class="table-wrap"><table><thead><tr id="head-y"></tr></thead><tbody id="body-y"></tbody></table></div>
+          <div class="empty-hint" id="empty-y" style="display:none;">Nenhum participante ainda.</div>
+          <div class="row-actions hidden">
+            <button onclick="addParticipant('y')">+ Participante</button>
+            <button onclick="addDay()">+ Dia em branco</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== VIEW: Resumir Dia / Acumulado ===================== -->
+    <section class="view hidden" id="view-resumir">
+      <div class="panel accent-y">
+        <div class="panel-title">Resumir dia / acumulado</div>
+        <div class="panel-hint">Gera o texto pronto pra postar, no mesmo formato que você já usa. Atualiza sozinho sempre que você lança um dia novo.</div>
+        <div class="summary-row">
+          <label>Dia: <select id="summary-day" onchange="generateSummary()"></select></label>
+          <button onclick="generateSummary()">Gerar resumo</button>
+          <button onclick="copySummary()" id="copy-btn">Copiar</button>
+          <button onclick="handleSalvarResumoAtual()" id="save-resumo-btn" class="hidden">💾 Salvar no histórico</button>
+        </div>
+        <textarea id="summary-output" readonly placeholder="O texto aparece aqui assim que houver ao menos um dia lançado..."></textarea>
+      </div>
+    </section>
+
+    <!-- ===================== VIEW: Painel Geral de Usuários ===================== -->
+    <section class="view hidden" id="view-usuarios">
+      <div class="panel">
+        <div class="panel-title">Usuários <button type="button" class="refresh-btn" onclick="carregarUsuariosSeNecessario(true)" title="Atualizar">🔄 atualizar</button></div>
+        <div class="panel-hint">Lista de nomes usada pra identificar quem faz cada alteração no ranking. Só quem está no modo de edição pode adicionar ou remover nomes.</div>
+        <div class="user-list" id="user-list"><div class="empty-hint">Carregando...</div></div>
+        <div id="add-user-lock" class="locked-msg hidden">🔒 Entre no modo de edição pra adicionar um usuário.</div>
+        <form id="form-add-user" class="add-user-form hidden" onsubmit="handleAdicionarUsuario(event)">
+          <input type="text" id="novo-usuario-nome" placeholder="Nome do novo usuário" required>
+          <button type="submit" class="launch-submit" id="add-user-btn">+ Adicionar</button>
+        </form>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Senha de administrador</div>
+        <div id="senha-lock" class="locked-msg hidden">🔒 Entre no modo de edição pra trocar a senha.</div>
+        <form id="form-trocar-senha" class="auth-form hidden" onsubmit="handleTrocarSenha(event)">
+          <label class="campo"><span>Nova senha</span>
+            <input type="password" id="nova-senha-admin" required minlength="6" placeholder="Mínimo 6 caracteres">
+          </label>
+          <button type="submit" class="launch-submit" id="trocar-senha-btn">Trocar senha</button>
+        </form>
+        <div id="senha-msg" class="auth-msg hidden"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Atividade recente</div>
+        <div class="panel-hint">Últimas alterações salvas, com quem fez cada uma.</div>
+        <div class="log-list" id="log-list"><div class="empty-hint">Carregando...</div></div>
+      </div>
+    </section>
+
+  </div><!-- /.main -->
+</div><!-- /.app-shell -->
+
+<script>
+/* ======================================================================
+   CONFIGURAÇÃO DA API (Google Apps Script)
+   Cole aqui a URL gerada ao implantar o Code.gs como Web App (veja o guia).
+   ====================================================================== */
+const API_URL = 'https://script.google.com/macros/s/AKfycby9Z_NvWzhR5KJwZrBFYGDObSWizFZXvOG15fLK1pELGX64Gtz1zCkMzznYm-AK2DFM1w/exec';
+
+async function chamarAPI(payload){
+  const resposta = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
+  if(!resposta.ok) throw new Error('Erro de rede (HTTP ' + resposta.status + ')');
+  return resposta.json();
+}
+
+async function chamarAPIGet(params){
+  const query = new URLSearchParams(params).toString();
+  const resposta = await fetch(API_URL + '?' + query);
+  if(!resposta.ok) throw new Error('Erro de rede (HTTP ' + resposta.status + ')');
+  return resposta.json();
+}
+
+function mostrarMsg(elId, texto, ok){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  el.textContent = texto;
+  el.classList.remove('hidden', 'ok', 'erro');
+  el.classList.add(ok ? 'ok' : 'erro');
+}
+function esconderMsg(elId){
+  const el = document.getElementById(elId);
+  if(el) el.classList.add('hidden');
+}
+function definirCarregando(btn, carregando, textoNormal){
+  btn.disabled = carregando;
+  btn.textContent = carregando ? 'Aguarde...' : textoNormal;
+}
+
+// trata o erro padrão de sessão expirada; devolve true se já tratou
+function tratarErroSessao(erro){
+  if(erro && /sessão de administrador expirada/i.test(erro)){
+    handleSairAdmin();
+    alert('Sua sessão de edição expirou. Entre no modo de edição de novo pra continuar.');
+    return true;
+  }
+  return false;
+}
+
+
+/* ======================================================================
+   ESTADO GLOBAL
+   ====================================================================== */
+let modoAdmin = { token: sessionStorage.getItem('rankingGeral_token') || null };
+let nomeAtual = localStorage.getItem('rankingGeral_nomeAtual') || '';
+
+let state = { days: 0, x: [], y: [] };
+let loaded = false;
+let pendingImport = null;
+let pendingDayMode = 'new';
+let imagemRankingSelecionada = null; // { base64, mediaType } — imagem escolhida/colada, aguardando leitura
+
+// rascunho (não salvo) do formulário de lançamento do dia
+let draft = { x:{}, y:{} };
+let draftNew = { x:[], y:[] };
+
+let usuariosRoster = [];
+let atividadeLog = [];
+let usuariosCarregado = false;
+
+let resumosSalvos = [];
+let resumosCarregado = false;
+
+function exigirModoEdicao(){
+  if(!modoAdmin.token){ alert('Entre no modo de edição pra fazer alterações.'); return false; }
+  if(!nomeAtual){ alert('Escolha seu nome no topo da página antes de fazer alterações.'); return false; }
+  return true;
+}
+
+
+/* ======================================================================
+   SIDEBAR E NAVEGAÇÃO ENTRE PAINÉIS
+   ====================================================================== */
+const VIEWS = ['lancar','utilitario','resumos-salvos','faixas','resumir','usuarios'];
+
+function mostrarView(nome){
+  VIEWS.forEach(function(v){
+    const el = document.getElementById('view-'+v);
+    if(el) el.classList.toggle('hidden', v !== nome);
+  });
+  document.querySelectorAll('.side-link').forEach(function(btn){
+    btn.classList.toggle('active', btn.dataset.view === nome);
+  });
+  if(nome === 'usuarios') carregarUsuariosSeNecessario();
+  if(nome === 'resumos-salvos') carregarResumosSeNecessario();
+  toggleSidebarMobile(false);
+}
+
+function toggleSidebarMobile(abrir){
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  const estado = typeof abrir === 'boolean' ? abrir : !sidebar.classList.contains('open');
+  sidebar.classList.toggle('open', estado);
+  overlay.classList.toggle('show', estado);
+}
+
+function toggleSidebarCollapse(){
+  const sidebar = document.getElementById('sidebar');
+  const collapsed = sidebar.classList.toggle('collapsed');
+  localStorage.setItem('rankingGeral_sidebarCollapsed', collapsed ? '1' : '0');
+  const btn = document.getElementById('sidebar-collapse-btn');
+  if(btn) btn.textContent = collapsed ? '»' : '«';
+}
+
+
+/* ======================================================================
+   MODO DE EDIÇÃO (ADMINISTRADOR) E IDENTIFICAÇÃO DO USUÁRIO
+   ====================================================================== */
+function toggleAdminForm(mostrar){
+  const pop = document.getElementById('admin-form-popover');
+  const estado = typeof mostrar === 'boolean' ? mostrar : pop.classList.contains('hidden');
+  pop.classList.toggle('hidden', !estado);
+  if(estado){
+    const input = document.getElementById('admin-senha-input');
+    if(input){ input.value=''; input.focus(); }
+    esconderMsg('admin-msg');
+  }
+}
+
+async function handleEntrarAdmin(event){
+  event.preventDefault();
+  const btn = document.getElementById('admin-entrar-btn');
+  const senha = document.getElementById('admin-senha-input').value;
+  esconderMsg('admin-msg');
+  definirCarregando(btn, true, 'Entrar');
+  try{
+    const resposta = await chamarAPI({ action:'entrarModoAdmin', senha:senha });
+    if(!resposta.sucesso){ mostrarMsg('admin-msg', resposta.erro || 'Não foi possível entrar.', false); return; }
+    modoAdmin.token = resposta.dados.token;
+    sessionStorage.setItem('rankingGeral_token', modoAdmin.token);
+    toggleAdminForm(false);
+    atualizarBarraIdentidade();
+    await carregarUsuariosSeNecessario(true);
+    render();
+  }catch(erro){
+    console.error(erro);
+    mostrarMsg('admin-msg', 'Erro de conexão. Verifique a URL da API (API_URL) e sua internet.', false);
+  }finally{
+    definirCarregando(btn, false, 'Entrar');
+  }
+}
+
+function handleSairAdmin(){
+  modoAdmin.token = null;
+  sessionStorage.removeItem('rankingGeral_token');
+  atualizarBarraIdentidade();
+  render();
+}
+
+function atualizarBarraIdentidade(){
+  const admin = !!modoAdmin.token;
+  document.getElementById('identity-locked').classList.toggle('hidden', admin);
+  document.getElementById('identity-unlocked').classList.toggle('hidden', !admin);
+  if(admin) popularSeletorNome();
+}
+
+function popularSeletorNome(){
+  const sel = document.getElementById('seletor-nome-atual');
+  if(!sel) return;
+  let opts = '<option value="">— escolher —</option>';
+  usuariosRoster.forEach(function(u){
+    opts += `<option value="${u.nome}">${u.nome}</option>`;
+  });
+  opts += '<option value="__outro__">Outro nome...</option>';
+  sel.innerHTML = opts;
+
+  const inputOutro = document.getElementById('nome-outro');
+  if(nomeAtual && usuariosRoster.some(function(u){ return u.nome === nomeAtual; })){
+    sel.value = nomeAtual;
+    inputOutro.classList.add('hidden');
+  } else if(nomeAtual){
+    sel.value = '__outro__';
+    inputOutro.value = nomeAtual;
+    inputOutro.classList.remove('hidden');
+  } else {
+    sel.value = '';
+    inputOutro.classList.add('hidden');
+  }
+}
+
+function selecionarNome(valor){
+  const inputOutro = document.getElementById('nome-outro');
+  if(valor === '__outro__'){
+    inputOutro.classList.remove('hidden');
+    inputOutro.focus();
+    return;
+  }
+  inputOutro.classList.add('hidden');
+  nomeAtual = valor;
+  localStorage.setItem('rankingGeral_nomeAtual', nomeAtual);
+}
+
+function confirmarNomeOutro(){
+  const inputOutro = document.getElementById('nome-outro');
+  const valor = inputOutro.value.trim();
+  if(valor){
+    nomeAtual = valor;
+    localStorage.setItem('rankingGeral_nomeAtual', nomeAtual);
+  }
+}
+
+
+/* ======================================================================
+   TEXTO DO RESUMO (compartilhado entre "Resumir" e o auto-save)
+   ====================================================================== */
+function scoreTag(v){
+  const n = v ?? 0;
+  return n >= 0 ? `+${n}` : `${n}`;
+}
+
+function ptsTag(v){
+  const abs = Math.abs(v);
+  return `${v} ${abs === 1 ? 'pt' : 'pts'}`;
+}
+
+function rankDivisionForDay(div, dayIdx){
+  const list = state[div].filter(p => p.scores[dayIdx] !== null && p.scores[dayIdx] !== undefined);
+  list.sort((a,b)=>{
+    const av = a.scores[dayIdx] ?? 0;
+    const bv = b.scores[dayIdx] ?? 0;
+    if(bv !== av) return bv - av;
+    return a.name.localeCompare(b.name, 'pt-BR');
+  });
+  return list;
+}
+
+function buildDivisionBlock(title, range, emoji, entries, formatFn){
+  const bar = '━━━━━━━━━━━━━━━━━━';
+  let out = `${bar} \n${emoji} ${title} • ${range} \n${bar}\n`;
+  out += entries.map((e, i) => `${i+1}° ${e.name} — ${formatFn(e)}`).join('\n');
+  return out;
+}
+
+function textoResumoParaDia(dayIdx){
+  const xDay = rankDivisionForDay('x', dayIdx);
+  const yDay = rankDivisionForDay('y', dayIdx);
+  const xAcc = sortDivision('x');
+  const yAcc = sortDivision('y');
+
+  let text = `🏆 RANKING DIA ${dayIdx+1}\n`;
+  text += buildDivisionBlock('FAIXA X', '0 ~ 19.999M', '📗', xDay, e => scoreTag(e.scores[dayIdx]));
+  text += '\n';
+  text += buildDivisionBlock('FAIXA Y', '20M ~ ∞', '📘', yDay, e => scoreTag(e.scores[dayIdx]));
+  text += '\n🏆 RANKING ACUMULADO\n';
+  text += buildDivisionBlock('FAIXA X', '0 ~ 19.999M', '📗', xAcc, e => ptsTag(e.total));
+  text += '\n';
+  text += buildDivisionBlock('FAIXA Y', '20M ~ ∞', '📘', yAcc, e => ptsTag(e.total));
+  return text;
+}
+
+function populateDaySelect(){
+  const sel = document.getElementById('summary-day');
+  sel.innerHTML = '';
+  for(let d = 0; d < state.days; d++){
+    const opt = document.createElement('option');
+    opt.value = d;
+    opt.textContent = `Dia ${d+1}`;
+    sel.appendChild(opt);
+  }
+  if(state.days > 0) sel.value = state.days - 1;
+}
+
+function generateSummary(){
+  const out = document.getElementById('summary-output');
+  if(state.days === 0){ out.value = ''; return; }
+  const dayIdx = parseInt(document.getElementById('summary-day').value, 10);
+  out.value = textoResumoParaDia(dayIdx);
+}
+
+function copySummary(){
+  const el = document.getElementById('summary-output');
+  if(!el.value){ generateSummary(); }
+  if(!el.value) return;
+  el.select();
+  const btn = document.getElementById('copy-btn');
+  const finish = () => {
+    const old = btn.textContent;
+    btn.textContent = 'Copiado!';
+    btn.classList.add('copy-flash');
+    setTimeout(()=>{ btn.textContent = old; btn.classList.remove('copy-flash'); }, 1500);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(el.value).then(finish).catch(()=>{ document.execCommand('copy'); finish(); });
+  } else {
+    document.execCommand('copy'); finish();
+  }
+}
+
+async function handleSalvarResumoAtual(){
+  if(!exigirModoEdicao()) return;
+  if(state.days === 0){ alert('Lance ao menos um dia antes de salvar um resumo.'); return; }
+  const dayIdx = parseInt(document.getElementById('summary-day').value, 10);
+  if(!document.getElementById('summary-output').value) generateSummary();
+  const btn = document.getElementById('save-resumo-btn');
+  definirCarregando(btn, true, '💾 Salvar no histórico');
+  try{
+    const resposta = await chamarAPI({
+      action:'salvarResumo', token:modoAdmin.token, usuario:nomeAtual,
+      dia: dayIdx+1, texto: document.getElementById('summary-output').value
+    });
+    if(!resposta.sucesso){ if(tratarErroSessao(resposta.erro)) return; alert(resposta.erro || 'Não foi possível salvar.'); return; }
+    resumosCarregado = false;
+    alert('Resumo salvo no histórico!');
+  }catch(erro){
+    console.error(erro);
+    alert('Erro de conexão ao salvar o resumo.');
+  }finally{
+    definirCarregando(btn, false, '💾 Salvar no histórico');
+  }
+}
+
+async function autoSalvarResumoDoDia(dayIdx){
+  if(!modoAdmin.token) return;
+  try{
+    await chamarAPI({
+      action:'salvarResumo', token:modoAdmin.token, usuario:nomeAtual,
+      dia: dayIdx+1, texto: textoResumoParaDia(dayIdx)
+    });
+    resumosCarregado = false;
+  }catch(erro){
+    console.error('Erro ao salvar resumo automático', erro);
+  }
+}
+
+
+/* ======================================================================
+   COLAGEM (ABA "COLAR")
+   ====================================================================== */
+function findDivision(name){
+  const norm = name.toLowerCase();
+  if(state.x.some(p=>p.name.toLowerCase()===norm)) return 'x';
+  if(state.y.some(p=>p.name.toLowerCase()===norm)) return 'y';
+  return null;
+}
+
+function processPaste(){
+  if(!exigirModoEdicao()) return;
+  const text = document.getElementById('paste-area').value;
+  const chunks = text.split(/[;\n]+/).map(s=>s.trim()).filter(Boolean);
+  const parsed = [];
+  const skipped = [];
+  for(const chunk of chunks){
+    let m = chunk.match(/^(.+),\s*(-?\d+(?:[.,]\d+)?)\s*$/);
+    if(!m) m = chunk.match(/^(.+?)[\s\t]+(-?\d+(?:[.,]\d+)?)\s*$/);
+    if(!m){ skipped.push(chunk); continue; }
+    const value = parseFloat(m[2].replace(',', '.'));
+    if(isNaN(value)){ skipped.push(chunk); continue; }
+    parsed.push({ name: m[1].trim(), value: Math.min(value, 10) });
+  }
+  if(!parsed.length){
+    alert('Não consegui ler nenhum participante. Use o formato: Nome, Pontuação; um por ponto e vírgula ou por linha.');
+    return;
+  }
+  pendingImport = parsed.map(e=>{
+    const known = findDivision(e.name);
+    return { ...e, knownDiv: known, div: known || 'x' };
+  });
+  pendingDayMode = 'new';
+  renderPending();
+  if(skipped.length){
+    console.warn('Linhas não reconhecidas na colagem:', skipped);
+  }
+}
+
+
+/* ---------- Leitura por imagem (print do ranking) ---------- */
+function inicializarImportacaoPorImagem(){
+  const dropZone = document.getElementById('image-drop-zone');
+  const input = document.getElementById('ranking-image-input');
+  if(!dropZone || !input || dropZone.dataset.bound) return;
+  dropZone.dataset.bound = '1';
+
+  input.addEventListener('change', (e)=>{
+    if(e.target.files && e.target.files[0]) carregarArquivoImagem(e.target.files[0]);
+  });
+
+  dropZone.addEventListener('dragover', (e)=>{ e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', (e)=>{
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const arquivo = e.dataTransfer.files && e.dataTransfer.files[0];
+    if(arquivo && arquivo.type && arquivo.type.startsWith('image/')) carregarArquivoImagem(arquivo);
+  });
+
+  dropZone.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); input.click(); }
+  });
+
+  // cola (Ctrl+V) de uma imagem em qualquer lugar, mas só reage se a aba
+  // "Lançar > Colar" estiver de fato visível na tela nesse momento.
+  document.addEventListener('paste', tratarColagemImagem);
+}
+
+function tratarColagemImagem(e){
+  const viewLancar = document.getElementById('view-lancar');
+  const launchCard = document.getElementById('launch-card');
+  const pasteView = document.getElementById('launch-view-paste');
+  if(!viewLancar || viewLancar.classList.contains('hidden')) return;
+  if(!launchCard || launchCard.classList.contains('hidden')) return;
+  if(!pasteView || pasteView.style.display === 'none') return;
+
+  const itens = (e.clipboardData && e.clipboardData.items) || [];
+  for(let i = 0; i < itens.length; i++){
+    if(itens[i].type && itens[i].type.startsWith('image/')){
+      const arquivo = itens[i].getAsFile();
+      if(arquivo){ e.preventDefault(); carregarArquivoImagem(arquivo); }
+      return;
+    }
+  }
+}
+
+function carregarArquivoImagem(arquivo){
+  if(!arquivo.type || !arquivo.type.startsWith('image/')){
+    alert('Selecione um arquivo de imagem (PNG, JPG, etc.).');
+    return;
+  }
+  const leitor = new FileReader();
+  leitor.onload = () => {
+    const dataUrl = leitor.result;
+    const img = new Image();
+    img.onload = () => {
+      const LIMITE_BORDA = 2200;
+      const precisaRedimensionar = img.width > LIMITE_BORDA || img.height > LIMITE_BORDA || arquivo.size > 8 * 1024 * 1024;
+      if(!precisaRedimensionar){
+        const m = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/);
+        if(!m){ alert('Não consegui ler essa imagem.'); return; }
+        imagemRankingSelecionada = { base64: m[2], mediaType: m[1] };
+        mostrarPreviewImagem(dataUrl);
+        return;
+      }
+      // imagem grande demais: redimensiona mantendo proporção e legibilidade do texto
+      const escala = Math.min(LIMITE_BORDA / img.width, LIMITE_BORDA / img.height, 1);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * escala);
+      canvas.height = Math.round(img.height * escala);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const dataUrlRedimensionada = canvas.toDataURL('image/png');
+      const m2 = dataUrlRedimensionada.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/);
+      if(!m2){ alert('Não consegui processar essa imagem.'); return; }
+      imagemRankingSelecionada = { base64: m2[2], mediaType: m2[1] };
+      mostrarPreviewImagem(dataUrlRedimensionada);
+    };
+    img.onerror = () => alert('Não consegui abrir essa imagem.');
+    img.src = dataUrl;
+  };
+  leitor.onerror = () => alert('Não consegui ler essa imagem.');
+  leitor.readAsDataURL(arquivo);
+}
+
+function mostrarPreviewImagem(dataUrl){
+  document.getElementById('image-preview').src = dataUrl;
+  document.getElementById('image-preview-wrap').classList.remove('hidden');
+  esconderStatusImagem();
+}
+
+function limparImagemRanking(){
+  imagemRankingSelecionada = null;
+  const wrap = document.getElementById('image-preview-wrap');
+  const preview = document.getElementById('image-preview');
+  const input = document.getElementById('ranking-image-input');
+  if(wrap) wrap.classList.add('hidden');
+  if(preview) preview.src = '';
+  if(input) input.value = '';
+  esconderStatusImagem();
+}
+
+function mostrarStatusImagem(texto, tipo){
+  const el = document.getElementById('image-status');
+  if(!el) return;
+  el.textContent = texto;
+  el.className = 'image-status ' + tipo;
+  el.classList.remove('hidden');
+}
+function esconderStatusImagem(){
+  const el = document.getElementById('image-status');
+  if(el) el.classList.add('hidden');
+}
+
+function escapeHtml(str){
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Recebe a lista de participantes já com pontuação calculada (vinda da leitura
+// por imagem) e alimenta o mesmo painel de confirmação usado pela colagem de texto.
+function preencherPendingComParticipantes(participantes){
+  pendingImport = participantes.map(p=>{
+    const known = findDivision(p.nome);
+    return {
+      name: p.nome,
+      value: p.pontuacao,
+      knownDiv: known,
+      div: known || p.divisaoSugerida || 'x',
+      posicao: p.posicao,
+      changePercent: p.changePercent,
+      valor: p.valor
+    };
+  });
+  pendingDayMode = 'new';
+  renderPending();
+}
+
+function avisoLinhasIgnoradas(resposta){
+  const ignoradas = (resposta.dados && resposta.dados.linhasIgnoradas) || 0;
+  const texto = ignoradas > 0
+    ? ` ⚠️ ${ignoradas} linha(s) não deu(ram) pra identificar e ficaram de fora — confira o total de participantes antes de lançar.`
+    : '';
+  return { texto, tipo: ignoradas > 0 ? 'erro' : 'ok' };
+}
+
+async function lerImagemRanking(){
+  if(!exigirModoEdicao()) return;
+  if(!imagemRankingSelecionada){ alert('Escolha ou cole uma imagem primeiro.'); return; }
+  if(pendingImport && pendingImport.length){
+    const ok = confirm('Já existe uma leitura pendente, ainda não lançada. Substituir pelos dados dessa imagem?');
+    if(!ok) return;
+  }
+  const btn = document.getElementById('ler-imagem-btn');
+  definirCarregando(btn, true, '🔎 Ler imagem');
+  mostrarStatusImagem('Lendo a imagem... isso pode levar alguns segundos.', 'busy');
+  try{
+    const resposta = await chamarAPI({
+      action: 'lerImagemRanking',
+      token: modoAdmin.token,
+      imagemBase64: imagemRankingSelecionada.base64,
+      mediaType: imagemRankingSelecionada.mediaType
+    });
+    if(!resposta.sucesso){
+      if(tratarErroSessao(resposta.erro)) return;
+      mostrarStatusImagem(resposta.erro || 'Não consegui ler essa imagem.', 'erro');
+      return;
+    }
+    const participantes = (resposta.dados && resposta.dados.participantes) || [];
+    if(!participantes.length){
+      mostrarStatusImagem('Nenhuma empresa foi identificada nessa imagem.', 'erro');
+      return;
+    }
+    preencherPendingComParticipantes(participantes);
+    const aviso = avisoLinhasIgnoradas(resposta);
+    mostrarStatusImagem('✓ ' + participantes.length + ' empresa(s) lida(s) — confira os dados abaixo antes de lançar.' + aviso.texto, aviso.tipo);
+  }catch(erro){
+    console.error(erro);
+    mostrarStatusImagem('Erro de conexão ao ler a imagem.', 'erro');
+  }finally{
+    definirCarregando(btn, false, '🔎 Ler imagem');
+  }
+}
+
+function populatePendingDaySelect(){
+  const sel = document.getElementById('pending-day-select');
+  if(!sel) return;
+  let opts = `<option value="new">Novo dia (Dia ${state.days + 1})</option>`;
+  for(let d = state.days - 1; d >= 0; d--){
+    opts += `<option value="${d}">Dia ${d+1} (substituir)</option>`;
+  }
+  sel.innerHTML = opts;
+  sel.value = pendingDayMode === 'new' ? 'new' : String(pendingDayMode);
+  sel.onchange = () => {
+    pendingDayMode = sel.value === 'new' ? 'new' : parseInt(sel.value, 10);
+  };
+}
+
+function applyBulkDiv(value){
+  if(!value || !pendingImport) return;
+  pendingImport.forEach(e => e.div = value);
+  renderPending();
+  document.getElementById('pending-bulk-div').value = value;
+}
+
+function renderPending(){
+  const panel = document.getElementById('pending-panel');
+  const list = document.getElementById('pending-list');
+  if(!pendingImport || !pendingImport.length){ panel.style.display='none'; return; }
+  panel.style.display = 'block';
+  populatePendingDaySelect();
+  list.innerHTML = pendingImport.map((e, i)=>{
+    const valClass = e.value < 0 ? 'val-neg' : e.value > 0 ? 'val-pos' : '';
+    const tag = e.knownDiv
+      ? `<span class="tag-known">já em Faixa ${e.knownDiv.toUpperCase()}</span>`
+      : `<span class="tag-known" style="color:var(--y-color);">novo</span>`;
+    const temMeta = e.changePercent !== undefined && e.changePercent !== null;
+    let avisoOrdem = '';
+    if(temMeta && i > 0){
+      const anterior = pendingImport[i-1];
+      if(anterior && anterior.changePercent !== undefined && anterior.changePercent !== null && e.changePercent > anterior.changePercent){
+        avisoOrdem = `<span class="pending-warn" title="A % de crescimento subiu em relação à linha anterior — confira essa linha no print original.">⚠️</span>`;
+      }
+    }
+    const meta = temMeta
+      ? `<span class="pending-meta">${e.posicao ? e.posicao + 'º · ' : ''}${e.changePercent > 0 ? '+' : ''}${e.changePercent}%</span>`
+      : '';
+    return `<div class="pending-row">
+      <span class="pname">
+        <input type="text" class="pending-name-input" value="${escapeHtml(e.name)}" onchange="pendingImport[${i}].name=this.value; renderPending();">${avisoOrdem}
+      </span>
+      ${meta}
+      <input type="number" step="1" class="pval pending-value-input ${valClass}" value="${e.value}" onchange="pendingImport[${i}].value=parseFloat(this.value)||0; renderPending();">
+      ${tag}
+      <select onchange="pendingImport[${i}].div=this.value">
+        <option value="x" ${e.div==='x'?'selected':''}>Faixa X</option>
+        <option value="y" ${e.div==='y'?'selected':''}>Faixa Y</option>
+      </select>
+    </div>`;
+  }).join('');
+}
+
+function cancelImport(){
+  pendingImport = null;
+  pendingDayMode = 'new';
+  document.getElementById('pending-panel').style.display = 'none';
+}
+
+function confirmImport(){
+  if(!exigirModoEdicao()) return;
+  if(!pendingImport || !pendingImport.length) return;
+
+  let dayIdx;
+  if(pendingDayMode === 'new'){
+    state.days += 1;
+    state.x.forEach(p=>p.scores.push(null));
+    state.y.forEach(p=>p.scores.push(null));
+    dayIdx = state.days - 1;
+  } else {
+    dayIdx = pendingDayMode;
+  }
+
+  pendingImport.forEach(e=>{
+    const div = e.div || 'x';
+    const list = state[div];
+    let p = list.find(pp => pp.name.toLowerCase() === e.name.toLowerCase());
+    if(!p){
+      p = { name: e.name, scores: Array(state.days).fill(null) };
+      list.push(p);
+    }
+    p.scores[dayIdx] = e.value;
+  });
+
+  pendingImport = null;
+  pendingDayMode = 'new';
+  document.getElementById('pending-panel').style.display = 'none';
+  document.getElementById('paste-area').value = '';
+  limparImagemRanking();
+  switchLaunchTab('form');
+  saveState(); render();
+  autoSalvarResumoDoDia(dayIdx);
+}
+
+
+/* ======================================================================
+   ARMAZENAMENTO NA PLANILHA MESTRA (Google Apps Script)
+   Uma única planilha compartilhada — nada fica salvo no navegador, exceto
+   a sessão do modo de edição e o nome de quem está usando o app agora.
+   ====================================================================== */
+function setStatus(text, ok){
+  const el = document.getElementById('sync-status');
+  if(el) el.textContent = text;
+  const dot = document.getElementById('status-dot');
+  if(dot) dot.style.background = ok === false ? 'var(--neg)' : (ok === 'busy' ? 'var(--y-color)' : 'var(--x-color)');
+}
+
+async function loadState(){
+  setStatus('carregando dados...', 'busy');
+  try{
+    const resposta = await chamarAPIGet({ action:'listarRanking' });
+    if(!resposta.sucesso) throw new Error(resposta.erro || 'Falha ao carregar');
+    const carregado = resposta.dados;
+    if(carregado && typeof carregado.days === "number" && Array.isArray(carregado.x) && Array.isArray(carregado.y)){
+      state = carregado;
+    } else {
+      state = { days: 0, x: [], y: [] };
+    }
+    setStatus('sincronizado ✓', true);
+  }catch(e){
+    console.error("Erro ao carregar dados", e);
+    state = { days: 0, x: [], y: [] };
+    setStatus('erro ao carregar — recarregue a página para tentar de novo', false);
+  }
+  loaded = true;
+  render();
+}
+
+let saveTimeout = null;
+function saveState(){
+  if(!modoAdmin.token) return;
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(syncToServer, 900);
+}
+
+async function syncToServer(){
+  if(!modoAdmin.token) return;
+  setStatus('salvando...', 'busy');
+  try{
+    const resposta = await chamarAPI({ action:'salvarRanking', token:modoAdmin.token, usuario:nomeAtual, estado: state });
+    if(!resposta.sucesso){
+      if(tratarErroSessao(resposta.erro)) return;
+      throw new Error(resposta.erro || 'Falha ao salvar');
+    }
+    setStatus('sincronizado ✓', true);
+  }catch(e){
+    console.error("Erro ao salvar no servidor", e);
+    setStatus('erro ao sincronizar — suas últimas alterações podem não ter sido salvas', false);
+  }
+}
+
+
+/* ======================================================================
+   MUTAÇÕES DE PARTICIPANTES / DIAS
+   ====================================================================== */
+function addParticipant(div){
+  if(!exigirModoEdicao()) return;
+  const name = prompt('Nome do participante:');
+  if(!name) return;
+  const list = state[div];
+  list.push({ name: name.trim(), scores: Array(state.days).fill(null) });
+  saveState(); render();
+}
+
+function removeParticipant(div, idx){
+  if(!exigirModoEdicao()) return;
+  state[div].splice(idx,1);
+  saveState(); render();
+}
+
+function renameParticipant(div, idx){
+  if(!exigirModoEdicao()) return;
+  const current = state[div][idx].name;
+  const name = prompt('Novo nome:', current);
+  if(!name || !name.trim() || name.trim() === current) return;
+  state[div][idx].name = name.trim();
+  saveState(); render();
+}
+
+function addDay(){
+  if(!exigirModoEdicao()) return;
+  state.days += 1;
+  state.x.forEach(p=>p.scores.push(null));
+  state.y.forEach(p=>p.scores.push(null));
+  saveState(); render();
+}
+
+function removeDay(dayIdx){
+  if(!exigirModoEdicao()) return;
+  if(dayIdx < 0 || dayIdx >= state.days) return;
+  if(!confirm(`Remover o Dia ${dayIdx+1}? Os dias seguintes serão renumerados.`)) return;
+  state.x.forEach(p=>p.scores.splice(dayIdx,1));
+  state.y.forEach(p=>p.scores.splice(dayIdx,1));
+  state.days -= 1;
+  saveState(); render();
+}
+
+function updateScore(div, idx, dayIdx, value){
+  if(!exigirModoEdicao()) return;
+  let v = value.trim();
+  let num = v === '' ? null : parseFloat(v);
+  if(num !== null && isNaN(num)) num = null;
+  if(num !== null && num > 10) num = 10; // ganho máximo diário
+  state[div][idx].scores[dayIdx] = num;
+  saveState();
+  renderDivision(div);
+}
+
+function total(p){
+  return p.scores.reduce((s,v)=> s + (v ?? 0), 0);
+}
+
+function tiebreakDay(a,b){
+  for(let d=state.days-1; d>=0; d--){
+    const av = a.scores[d] ?? 0;
+    const bv = b.scores[d] ?? 0;
+    if(av !== bv) return d;
+  }
+  return null;
+}
+
+function sortDivision(div){
+  const list = state[div].map((p,i)=>({...p, idx:i, total: total(p)}));
+  list.sort((a,b)=>{
+    if(b.total !== a.total) return b.total - a.total;
+    const d = tiebreakDay(a,b);
+    if(d === null) return 0;
+    return (b.scores[d] ?? 0) - (a.scores[d] ?? 0);
+  });
+  return list;
+}
+
+function renderDivision(div){
+  const head = document.getElementById('head-'+div);
+  const body = document.getElementById('body-'+div);
+  const empty = document.getElementById('empty-'+div);
+  const admin = !!modoAdmin.token;
+
+  let headHtml = '<th class="rank-h">#</th><th class="name-h" style="text-align:left;">Nome</th>';
+  for(let d=0; d<state.days; d++) headHtml += `<th>D${d+1}</th>`;
+  headHtml += '<th>Total</th>' + (admin ? '<th></th>' : '');
+  head.innerHTML = headHtml;
+
+  const sorted = sortDivision(div);
+  empty.style.display = sorted.length ? 'none' : 'block';
+
+  body.innerHTML = sorted.map((p, rank)=>{
+    const rankClass = rank===0?'top1':rank===1?'top2':rank===2?'top3':'';
+    let cells = '';
+    for(let d=0; d<state.days; d++){
+      const val = p.scores[d];
+      const cls = val === null ? '' : (val < 0 ? 'val-neg' : val > 0 ? 'val-pos' : '');
+      cells += admin
+        ? `<td><input class="score ${cls}" type="text" inputmode="numeric" pattern="-?[0-9]*"
+            value="${val === null ? '' : val}"
+            onchange="updateScore('${div}', ${p.idx}, ${d}, this.value)"></td>`
+        : `<td class="${cls}">${val === null ? '—' : val}</td>`;
+    }
+    let tieTag = '';
+    if(rank < sorted.length - 1){
+      const next = sorted[rank+1];
+      if(next.total === p.total){
+        const d = tiebreakDay(p, next);
+        if(d !== null) tieTag = `<span class="tiebadge">desempate D${d+1}</span>`;
+      }
+    }
+    return `<tr class="${rankClass}">
+      <td class="rank">${rank+1}</td>
+      <td class="name">${p.name}${tieTag}</td>
+      ${cells}
+      <td class="total">${p.total}</td>
+      ${admin ? `<td><div class="row-btns">
+        <button class="del-x-btn" onclick="renameParticipant('${div}', ${p.idx})" title="Renomear">✎</button>
+        <button class="del-x-btn" onclick="removeParticipant('${div}', ${p.idx})" title="Remover">✕</button>
+      </div></td>` : ''}
+    </tr>`;
+  }).join('');
+}
+
+
+/* ---------------------------------------------------------------------
+   Formulário de lançamento do dia (aba "Preencher")
+   --------------------------------------------------------------------- */
+function switchLaunchTab(tab){
+  const formView = document.getElementById('launch-view-form');
+  const pasteView = document.getElementById('launch-view-paste');
+  const tabForm = document.getElementById('tab-form');
+  const tabPaste = document.getElementById('tab-paste');
+  if(tab === 'paste'){
+    formView.style.display = 'none';
+    pasteView.style.display = '';
+    tabForm.classList.remove('active');
+    tabPaste.classList.add('active');
+  } else {
+    formView.style.display = '';
+    pasteView.style.display = 'none';
+    tabForm.classList.add('active');
+    tabPaste.classList.remove('active');
+  }
+}
+
+function updateLaunchDayLabel(){
+  const el = document.getElementById('launch-day-label');
+  if(el) el.textContent = `Dia ${state.days + 1}`;
+}
+
+function styleLaunchInput(el){
+  el.classList.remove('val-pos','val-neg');
+  const v = parseFloat(String(el.value).replace(',', '.'));
+  if(!isNaN(v)){
+    if(v > 0) el.classList.add('val-pos');
+    else if(v < 0) el.classList.add('val-neg');
+  }
+}
+
+function focusNextLaunch(el){
+  const all = Array.from(document.querySelectorAll('#launch-view-form input'));
+  const idx = all.indexOf(el);
+  if(idx > -1 && idx < all.length - 1) all[idx+1].focus();
+  else el.blur();
+}
+
+function updateLaunchProgress(){
+  let filled = 0, totalCount = 0;
+  ['x','y'].forEach(div=>{
+    state[div].forEach((p,i)=>{
+      totalCount++;
+      if(draft[div][i] !== undefined && draft[div][i] !== '') filled++;
+    });
+    draftNew[div].forEach(r=>{
+      if(r.name.trim()){ totalCount++; if(r.value !== '') filled++; }
+    });
+    const countEl = document.getElementById('launch-count-'+div);
+    if(countEl) countEl.textContent = `${state[div].length} cadastrado${state[div].length===1?'':'s'}`;
+  });
+  const el = document.getElementById('launch-progress');
+  if(el){
+    el.textContent = totalCount
+      ? `${filled} de ${totalCount} preenchidos`
+      : 'Nenhum participante cadastrado ainda — use "+ novo participante"';
+  }
+}
+
+function renderDraftNewRows(div){
+  const wrap = document.getElementById('launch-new-'+div);
+  if(!wrap) return;
+  wrap.innerHTML = draftNew[div].map((row,i)=>`
+    <div class="launch-row launch-row-new">
+      <input class="launch-name-input" type="text" placeholder="Novo participante"
+        value="${row.name}" oninput="draftNew.${div}[${i}].name=this.value; updateLaunchProgress();">
+      <input class="launch-input" type="text" inputmode="numeric" pattern="-?[0-9]*" placeholder="pts"
+        value="${row.value}"
+        oninput="draftNew.${div}[${i}].value=this.value; styleLaunchInput(this); updateLaunchProgress();"
+        onkeydown="if(event.key==='Enter'){event.preventDefault(); focusNextLaunch(this);}">
+      <button type="button" class="del-x-btn" onclick="removeDraftRow('${div}', ${i})" title="Remover">✕</button>
+    </div>
+  `).join('');
+}
+
+function addDraftRow(div){
+  draftNew[div].push({ name:'', value:'' });
+  renderDraftNewRows(div);
+  updateLaunchProgress();
+  requestAnimationFrame(()=>{
+    const wrap = document.getElementById('launch-new-'+div);
+    const inputs = wrap ? wrap.querySelectorAll('.launch-name-input') : [];
+    if(inputs.length) inputs[inputs.length-1].focus();
+  });
+}
+
+function removeDraftRow(div, idx){
+  draftNew[div].splice(idx,1);
+  renderDraftNewRows(div);
+  updateLaunchProgress();
+}
+
+function renderLaunchForm(){
+  draft = { x:{}, y:{} };
+  draftNew = { x:[], y:[] };
+  ['x','y'].forEach(div=>{
+    const listEl = document.getElementById('launch-list-'+div);
+    if(!listEl) return;
+    listEl.innerHTML = state[div].length
+      ? state[div].map((p,i)=>`
+        <div class="launch-row">
+          <span class="launch-name">${p.name}</span>
+          <input class="launch-input" type="text" inputmode="numeric" pattern="-?[0-9]*" placeholder="—"
+            oninput="draft.${div}[${i}]=this.value; styleLaunchInput(this); updateLaunchProgress();"
+            onkeydown="if(event.key==='Enter'){event.preventDefault(); focusNextLaunch(this);}"
+            onfocus="this.select()">
+        </div>
+      `).join('')
+      : '<div class="empty-hint" style="padding:8px 0;">Nenhum participante ainda.</div>';
+    renderDraftNewRows(div);
+  });
+  updateLaunchDayLabel();
+  updateLaunchProgress();
+}
+
+function launchDayForm(){
+  if(!exigirModoEdicao()) return;
+  let hasAny = false;
+  ['x','y'].forEach(div=>{
+    if(Object.values(draft[div]).some(v => v !== undefined && v !== '')) hasAny = true;
+    if(draftNew[div].some(r => r.name.trim() && r.value !== '')) hasAny = true;
+  });
+  if(!hasAny){ alert('Preencha ao menos uma pontuação antes de lançar o dia.'); return; }
+
+  state.days += 1;
+  state.x.forEach(p=>p.scores.push(null));
+  state.y.forEach(p=>p.scores.push(null));
+  const newIdx = state.days - 1;
+
+  ['x','y'].forEach(div=>{
+    state[div].forEach((p,i)=>{
+      const raw = draft[div][i];
+      if(raw === undefined || raw === '') return;
+      let num = parseFloat(String(raw).replace(',', '.'));
+      if(isNaN(num)) return;
+      if(num > 10) num = 10;
+      p.scores[newIdx] = num;
+    });
+    draftNew[div].forEach(row=>{
+      const name = row.name.trim();
+      if(!name || row.value === '') return;
+      let num = parseFloat(String(row.value).replace(',', '.'));
+      if(isNaN(num)) return;
+      if(num > 10) num = 10;
+      let p = state[div].find(pp => pp.name.toLowerCase() === name.toLowerCase());
+      if(!p){
+        p = { name, scores: Array(state.days).fill(null) };
+        state[div].push(p);
+      }
+      p.scores[newIdx] = num;
+    });
+  });
+
+  saveState();
+  render();
+  autoSalvarResumoDoDia(newIdx);
+}
+
+
+/* ======================================================================
+   PAINEL UTILITÁRIO / ESTATÍSTICAS
+   ====================================================================== */
+function renderUtilitario(){
+  const admin = !!modoAdmin.token;
+  const grid = document.getElementById('stats-grid');
+  if(grid){
+    const xAcc = sortDivision('x');
+    const yAcc = sortDivision('y');
+    const liderX = xAcc.length ? `${xAcc[0].name} (${ptsTag(xAcc[0].total)})` : '—';
+    const liderY = yAcc.length ? `${yAcc[0].name} (${ptsTag(yAcc[0].total)})` : '—';
+    grid.innerHTML = `
+      <div class="stat-card"><span class="stat-value">${state.days}</span><span class="stat-label">dias lançados</span></div>
+      <div class="stat-card"><span class="stat-value">${state.x.length}</span><span class="stat-label">participantes Faixa X</span></div>
+      <div class="stat-card"><span class="stat-value">${state.y.length}</span><span class="stat-label">participantes Faixa Y</span></div>
+      <div class="stat-card"><span class="stat-value stat-value-sm">${liderX}</span><span class="stat-label">líder Faixa X</span></div>
+      <div class="stat-card"><span class="stat-value stat-value-sm">${liderY}</span><span class="stat-label">líder Faixa Y</span></div>
+    `;
+  }
+
+  const lock = document.getElementById('dias-lock');
+  if(lock) lock.classList.toggle('hidden', admin);
+  const list = document.getElementById('day-list');
+  if(!list) return;
+  if(!state.days){
+    list.innerHTML = '<div class="empty-hint">Nenhum dia lançado ainda.</div>';
+    return;
+  }
+  let html = '';
+  for(let d = state.days - 1; d >= 0; d--){
+    html += `<div class="day-row">
+      <span class="day-row-label">Dia ${d+1}</span>
+      <button class="del-x-btn day-remove-btn" ${admin ? '' : 'disabled'} onclick="removeDay(${d})" title="Remover Dia ${d+1}">✕ remover</button>
+    </div>`;
+  }
+  list.innerHTML = html;
+}
+
+
+/* ======================================================================
+   PAINEL RESUMOS SALVOS
+   ====================================================================== */
+async function carregarResumosSeNecessario(forcar){
+  if(resumosCarregado && !forcar) return;
+  const wrap = document.getElementById('resumos-salvos-lista');
+  if(wrap) wrap.innerHTML = '<div class="empty-hint">Carregando...</div>';
+  try{
+    const resposta = await chamarAPIGet({ action:'listarResumosSalvos' });
+    if(!resposta.sucesso) throw new Error(resposta.erro || 'Falha ao carregar');
+    resumosSalvos = resposta.dados || [];
+    resumosCarregado = true;
+  }catch(e){
+    console.error('Erro ao carregar resumos salvos', e);
+    resumosSalvos = [];
+  }
+  renderResumosSalvos();
+}
+
+function renderResumosSalvos(){
+  const wrap = document.getElementById('resumos-salvos-lista');
+  if(!wrap) return;
+  if(!resumosSalvos.length){
+    wrap.innerHTML = '<div class="empty-hint">Nenhum resumo salvo ainda.</div>';
+    return;
+  }
+  wrap.innerHTML = resumosSalvos.map(function(r, i){
+    const data = r.dataHora ? new Date(r.dataHora).toLocaleString('pt-BR') : '—';
+    return `<div class="resumo-card">
+      <div class="resumo-header">
+        <span class="day-tag">Dia ${r.dia}</span>
+        <span class="resumo-data">${data}</span>
+        <button type="button" onclick="copiarResumoSalvo(${i})">Copiar</button>
+      </div>
+      <pre class="resumo-body">${r.texto}</pre>
+    </div>`;
+  }).join('');
+}
+
+function copiarResumoSalvo(i){
+  const texto = resumosSalvos[i] ? resumosSalvos[i].texto : '';
+  if(!texto) return;
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texto);
+}
+
+
+/* ======================================================================
+   PAINEL GERAL DE USUÁRIOS
+   ====================================================================== */
+async function carregarUsuariosSeNecessario(forcar){
+  if(usuariosCarregado && !forcar) return;
+  try{
+    const resposta = await chamarAPIGet({ action:'listarUsuarios' });
+    if(!resposta.sucesso) throw new Error(resposta.erro || 'Falha ao carregar');
+    usuariosRoster = (resposta.dados && resposta.dados.usuarios) || [];
+    atividadeLog = (resposta.dados && resposta.dados.log) || [];
+    usuariosCarregado = true;
+  }catch(e){
+    console.error('Erro ao carregar usuários', e);
+    usuariosRoster = []; atividadeLog = [];
+  }
+  renderUsuarios();
+  if(modoAdmin.token) popularSeletorNome();
+}
+
+function renderUsuarios(){
+  const admin = !!modoAdmin.token;
+
+  const list = document.getElementById('user-list');
+  if(list){
+    list.innerHTML = usuariosRoster.length
+      ? usuariosRoster.map(function(u){
+          return `<div class="user-row">
+            <span class="user-row-name">${u.nome}</span>
+            ${admin ? `<button class="del-x-btn" onclick="handleRemoverUsuario('${u.idUsuario}')" title="Remover">✕</button>` : ''}
+          </div>`;
+        }).join('')
+      : '<div class="empty-hint">Nenhum usuário cadastrado ainda.</div>';
+  }
+  document.getElementById('add-user-lock').classList.toggle('hidden', admin);
+  document.getElementById('form-add-user').classList.toggle('hidden', !admin);
+  document.getElementById('senha-lock').classList.toggle('hidden', admin);
+  document.getElementById('form-trocar-senha').classList.toggle('hidden', !admin);
+
+  const logList = document.getElementById('log-list');
+  if(logList){
+    logList.innerHTML = atividadeLog.length
+      ? atividadeLog.map(function(l){
+          const data = l.dataHora ? new Date(l.dataHora).toLocaleString('pt-BR') : '—';
+          return `<div class="log-row">
+            <span class="log-row-data">${data}</span>
+            <span class="log-row-usuario">${l.usuario}</span>
+            <span class="log-row-acao">${l.acao}</span>
+          </div>`;
+        }).join('')
+      : '<div class="empty-hint">Nenhuma atividade registrada ainda.</div>';
+  }
+}
+
+async function handleAdicionarUsuario(event){
+  event.preventDefault();
+  if(!modoAdmin.token) return;
+  const btn = document.getElementById('add-user-btn');
+  const input = document.getElementById('novo-usuario-nome');
+  const nome = input.value.trim();
+  if(!nome) return;
+  definirCarregando(btn, true, '+ Adicionar');
+  try{
+    const resposta = await chamarAPI({ action:'adicionarUsuario', token:modoAdmin.token, nome:nome });
+    if(!resposta.sucesso){ if(tratarErroSessao(resposta.erro)) return; alert(resposta.erro || 'Não foi possível adicionar.'); return; }
+    input.value = '';
+    await carregarUsuariosSeNecessario(true);
+  }catch(erro){
+    console.error(erro);
+    alert('Erro de conexão ao adicionar usuário.');
+  }finally{
+    definirCarregando(btn, false, '+ Adicionar');
+  }
+}
+
+async function handleRemoverUsuario(idUsuario){
+  if(!modoAdmin.token) return;
+  if(!confirm('Remover este usuário da lista?')) return;
+  try{
+    const resposta = await chamarAPI({ action:'removerUsuario', token:modoAdmin.token, idUsuario:idUsuario });
+    if(!resposta.sucesso){ if(tratarErroSessao(resposta.erro)) return; alert(resposta.erro || 'Não foi possível remover.'); return; }
+    await carregarUsuariosSeNecessario(true);
+  }catch(erro){
+    console.error(erro);
+    alert('Erro de conexão ao remover usuário.');
+  }
+}
+
+async function handleTrocarSenha(event){
+  event.preventDefault();
+  if(!modoAdmin.token) return;
+  const btn = document.getElementById('trocar-senha-btn');
+  const input = document.getElementById('nova-senha-admin');
+  esconderMsg('senha-msg');
+  definirCarregando(btn, true, 'Trocar senha');
+  try{
+    const resposta = await chamarAPI({ action:'trocarSenhaAdmin', token:modoAdmin.token, novaSenha:input.value });
+    if(!resposta.sucesso && tratarErroSessao(resposta.erro)) return;
+    mostrarMsg('senha-msg', resposta.sucesso ? 'Senha atualizada com sucesso!' : (resposta.erro || 'Não foi possível trocar a senha.'), resposta.sucesso);
+    if(resposta.sucesso) input.value = '';
+  }catch(erro){
+    console.error(erro);
+    mostrarMsg('senha-msg', 'Erro de conexão.', false);
+  }finally{
+    definirCarregando(btn, false, 'Trocar senha');
+  }
+}
+
+
+/* ======================================================================
+   RENDERIZAÇÃO GERAL
+   ====================================================================== */
+function render(){
+  if(!loaded) return;
+  const admin = !!modoAdmin.token;
+
+  renderDivision('x');
+  renderDivision('y');
+  populateDaySelect();
+  generateSummary();
+  renderUtilitario();
+  renderUsuarios();
+
+  document.getElementById('view-lancar-lock').classList.toggle('hidden', admin);
+  document.getElementById('launch-card').classList.toggle('hidden', !admin);
+  if(admin) renderLaunchForm();
+
+  document.querySelectorAll('.row-actions').forEach(el => el.classList.toggle('hidden', !admin));
+  document.getElementById('save-resumo-btn').classList.toggle('hidden', !admin);
+
+  bindDragScroll();
+}
+
+function enableDragScroll(el){
+  if(!el || el.dataset.dragBound) return;
+  el.dataset.dragBound = '1';
+  let isDown = false, startX = 0, startScroll = 0;
+  el.addEventListener('mousedown', (e)=>{
+    isDown = true;
+    el.classList.add('dragging');
+    startX = e.pageX;
+    startScroll = el.scrollLeft;
+  });
+  window.addEventListener('mouseup', ()=>{ isDown = false; el.classList.remove('dragging'); });
+  window.addEventListener('mousemove', (e)=>{
+    if(!isDown) return;
+    e.preventDefault();
+    el.scrollLeft = startScroll - (e.pageX - startX);
+  });
+}
+
+function bindDragScroll(){
+  document.querySelectorAll('.table-wrap').forEach(enableDragScroll);
+}
+
+
+/* ======================================================================
+   INICIALIZAÇÃO
+   ====================================================================== */
+function iniciarApp(){
+  if(localStorage.getItem('rankingGeral_sidebarCollapsed') === '1'){
+    toggleSidebarCollapse();
+  }
+  atualizarBarraIdentidade();
+  inicializarImportacaoPorImagem();
+  loadState();
+}
+
+document.addEventListener('DOMContentLoaded', iniciarApp);
+window.addEventListener('beforeunload', saveState);
+window.addEventListener('pagehide', saveState);
+window.addEventListener('blur', saveState);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') saveState(); });
+</script>
+</body>
+</html>
