@@ -537,7 +537,7 @@
 
         <div id="launch-view-paste" style="display:none;">
           <div class="image-import-block">
-            <div class="panel-hint" style="margin-top:0;">Envie um print do ranking (ex.: Simco Tools) já ordenado por % de crescimento — a IA lê a colocação de cada empresa (gratuito, via Gemini) e calcula a pontuação sozinha pela Regra de Pontuação: 1º lugar 10 pts, decrescendo 1 a 1 até o 10º (1 pt); 11º sempre 0; do 12º em diante fica negativo — decrescendo 1 a 1 se a faixa tiver até 14 participantes, ou escalonado de 2 em 2 posições (-1,-1,-2,-2,-3,-3...) se tiver 15 ou mais. Leia uma imagem por faixa; se X e Y forem do mesmo dia, depois de lançar a primeira leitura, leia a segunda e troque "Aplicar em" para o mesmo dia antes de confirmar. <strong>Confira sempre os dados antes de lançar</strong> — dá pra corrigir nome e pontuação direto na lista.</div>
+            <div class="panel-hint" style="margin-top:0;">Envie um print do ranking (ex.: Simco Tools) já ordenado por % de crescimento — o sistema lê a colocação de cada empresa e calcula a pontuação sozinho pela Regra de Pontuação: 1º lugar 10 pts, decrescendo 1 a 1 até o 10º (1 pt); 11º sempre 0; do 12º em diante fica negativo — decrescendo 1 a 1 se a faixa tiver até 14 participantes, ou escalonado de 2 em 2 posições (-1,-1,-2,-2,-3,-3...) se tiver 15 ou mais. A leitura tenta até 3 métodos automaticamente, na ordem (Gemini → Groq → OCR nativo do Google), passando pro próximo se o anterior falhar — sem precisar de nada manual. Leia uma imagem por faixa; se X e Y forem do mesmo dia, depois de lançar a primeira leitura, leia a segunda e troque "Aplicar em" para o mesmo dia antes de confirmar. <strong>Confira sempre os dados antes de lançar</strong> — dá pra corrigir nome e pontuação direto na lista.</div>
             <div id="image-drop-zone" class="image-drop-zone" tabindex="0" role="button" aria-label="Selecionar ou colar imagem do ranking" onclick="document.getElementById('ranking-image-input').click()">
               <div class="image-drop-icon">🖼️</div>
               <div class="image-drop-text">
@@ -702,7 +702,7 @@
    CONFIGURAÇÃO DA API (Google Apps Script)
    Cole aqui a URL gerada ao implantar o Code.gs como Web App (veja o guia).
    ====================================================================== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbzOQDBqSi0HthZmA23IfZpDTkswXZf8I9HcJpwWy6JMlg5qgsWUvgBTR8ExAKsaUWtd/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxuaLGlzxiw6Z8uwW0KpybdqqA4HwxzU0nLntdNUgn4-SjUDjnqrunbdjWwuIskC5jE/exec';
 
 async function chamarAPI(payload){
   const resposta = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
@@ -1226,7 +1226,7 @@ async function lerImagemRanking(){
   }
   const btn = document.getElementById('ler-imagem-btn');
   definirCarregando(btn, true, '🔎 Ler imagem');
-  mostrarStatusImagem('Lendo a imagem... isso pode levar alguns segundos.', 'busy');
+  mostrarStatusImagem('Lendo a imagem... pode levar até 1 minuto se precisar tentar um método alternativo.', 'busy');
   try{
     const resposta = await chamarAPI({
       action: 'lerImagemRanking',
@@ -1246,7 +1246,8 @@ async function lerImagemRanking(){
     }
     preencherPendingComParticipantes(participantes);
     const aviso = avisoLinhasIgnoradas(resposta);
-    mostrarStatusImagem('✓ ' + participantes.length + ' empresa(s) lida(s) — confira os dados abaixo antes de lançar.' + aviso.texto, aviso.tipo);
+    const metodo = (resposta.dados && resposta.dados.metodo) ? ` (lido via ${resposta.dados.metodo})` : '';
+    mostrarStatusImagem('✓ ' + participantes.length + ' empresa(s) lida(s)' + metodo + ' — confira os dados abaixo antes de lançar.' + aviso.texto, aviso.tipo);
   }catch(erro){
     console.error(erro);
     mostrarStatusImagem('Erro de conexão ao ler a imagem.', 'erro');
