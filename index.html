@@ -211,6 +211,15 @@
   }
   .paste-actions{ margin-top:10px; display:flex; gap:8px; }
 
+  .ocr-upload-box{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px;
+    padding:11px 13px; background:var(--panel-2); border:1px dashed var(--line); border-radius:8px;
+  }
+  .ocr-status-text{ color:var(--muted); font-size:11px; }
+  .ocr-raw-wrap{ margin-bottom:14px; }
+  .ocr-raw-wrap summary{ font-size:11.5px; }
+  .ocr-raw-wrap pre{ max-height:220px; overflow-y:auto; }
+
   .pending-panel{
     margin-top:16px; background:var(--panel-2); border:1px solid var(--y-color); border-radius:10px;
     padding:14px 16px;
@@ -609,6 +618,11 @@
       </div>
 
       <div class="panel">
+        <div class="panel-title">Regra de pontuação</div>
+        <div class="rules-note">Pontuação calculada pela posição no crescimento % do dia (não pelo valor da empresa) · 1º ao 10º colocado: +10 a +1 (−1 por posição) · 11º: 0 ponto · a partir do 12º, negativo — decrescente 1 a 1 numa faixa com até 14 participantes, ou escalonado em pares (12º-13º −1, 14º-15º −2, 16º-17º −3...) numa faixa com 15 ou mais · a soma diária forma a classificação da temporada; empates seguem as Regras de Desempate abaixo.</div>
+      </div>
+
+      <div class="panel">
         <div class="panel-title">Regras de desempate</div>
         <div class="rules-note">Ganho máximo diário +10 · critério 1 — maior pontuação acumulada · critério 2+ — compara o resultado do dia mais recente e retrocede um dia por vez até achar diferença · 0 &gt; -1 &gt; -2, um -2 nunca fica acima de um -1 no mesmo dia comparado.</div>
       </div>
@@ -693,6 +707,18 @@
 
         <div id="launch-view-paste" style="display:none;">
           <div class="panel-hint" style="margin-top:0;">Um participante por vez, separados por <strong>ponto e vírgula</strong> ou por <strong>linha</strong>, no formato <strong>Nome, Pontuação</strong>. Exemplo: <em>João, 8; Maria, -1; Pedro, -1;</em> — também funciona colando um embaixo do outro. Depois de ler, escolha se é um dia novo ou se vai substituir um dia já lançado, e confira a faixa de cada participante antes de confirmar.</div>
+
+          <div class="ocr-upload-box">
+            <input type="file" id="ocr-file-input" accept="image/*" class="hidden" onchange="handleOcrFileSelected(event)">
+            <button type="button" id="ocr-upload-btn" onclick="document.getElementById('ocr-file-input').click()">📷 Ler pontuação de um print (OCR)</button>
+            <span class="ocr-status-text" id="ocr-status">Sobe o print do ranking do dia (ex.: Simco Tools) e a gente já calcula a pontuação de cada posição pra você.</span>
+          </div>
+          <div class="ocr-raw-wrap hidden" id="ocr-raw-wrap">
+            <details><summary class="link-btn" style="display:inline; cursor:pointer;">ver texto bruto reconhecido pelo OCR</summary>
+              <pre class="resumo-body" id="ocr-raw-text" style="margin-top:8px;"></pre>
+            </details>
+          </div>
+
           <textarea id="paste-area" placeholder="João, 8;&#10;Maria, -1;&#10;Pedro, -1;"></textarea>
           <div class="paste-actions">
             <button onclick="processPaste()">Ler colagem</button>
@@ -790,7 +816,7 @@
    CONFIGURAÇÃO DA API (Google Apps Script)
    Cole aqui a URL gerada ao implantar o Code.gs como Web App (veja o guia).
    ====================================================================== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbxO4MubWuEjxtUEj7OVX0bTBD8CMd2KExC6ap4VwTtLRB8CPcOCnZJ4LVATSYgw_LE8tw/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzzE5jhGAw2y_2oDWJ1kBL-b_-gvbmXBdNdu_kZdGvl4Pp_ArPDWSR2rUtcBQ4qz54NAQ/exec';
 
 async function chamarAPI(payload){
   const resposta = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
@@ -1214,6 +1240,60 @@ async function autoSalvarResumoDoDia(dayIdx){
 /* ======================================================================
    COLAGEM (ABA "COLAR")
    ====================================================================== */
+
+// Lê um print de ranking (ex.: Simco Tools) usando o OCR nativo do Google
+// Drive, no backend, e devolve o texto já formatado como "Nome, Pontuação;"
+// direto na caixa de colar — o resto do fluxo (Ler colagem → conferir →
+// Lançar) continua igual, então dá pra revisar/corrigir antes de confirmar.
+async function handleOcrFileSelected(event){
+  if(!exigirAdministrador()){ event.target.value = ''; return; }
+  const file = event.target.files[0];
+  if(!file) return;
+
+  const btn = document.getElementById('ocr-upload-btn');
+  const status = document.getElementById('ocr-status');
+  const textoOriginal = btn.textContent;
+  document.getElementById('ocr-raw-wrap').classList.add('hidden');
+  definirCarregando(btn, true, textoOriginal);
+  status.textContent = 'Lendo a imagem — isso pode levar alguns segundos...';
+
+  try{
+    const imagemBase64 = await arquivoParaBase64(file);
+    const resposta = await chamarAPI({
+      action:'ocrImagem', token:sessaoUsuario.token,
+      imagemBase64:imagemBase64, mimeType:file.type || 'image/png'
+    });
+    if(!resposta.sucesso){
+      if(tratarErroSessaoOuPermissao(resposta)) return;
+      status.textContent = resposta.erro || 'Não foi possível ler a imagem.';
+      return;
+    }
+    document.getElementById('paste-area').value = resposta.dados.textoFormatado || '';
+    status.textContent = resposta.dados.linhas
+      ? `${resposta.dados.linhas} participante(s) reconhecido(s) — confira os nomes e a pontuação abaixo antes de clicar em "Ler colagem".`
+      : 'Não reconheci nenhum participante nessa imagem — veja o texto bruto abaixo ou digite manualmente.';
+    if(resposta.dados.textoOcrBruto){
+      document.getElementById('ocr-raw-text').textContent = resposta.dados.textoOcrBruto;
+      document.getElementById('ocr-raw-wrap').classList.remove('hidden');
+    }
+  }catch(erro){
+    console.error(erro);
+    status.textContent = 'Erro de conexão ao ler a imagem.';
+  }finally{
+    definirCarregando(btn, false, textoOriginal);
+    event.target.value = ''; // permite escolher o mesmo arquivo de novo depois
+  }
+}
+
+function arquivoParaBase64(file){
+  return new Promise(function(resolve, reject){
+    const reader = new FileReader();
+    reader.onload = function(){ resolve(String(reader.result).split(',')[1]); };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function findDivision(name){
   const norm = name.toLowerCase();
   if(state.x.some(p=>p.name.toLowerCase()===norm)) return 'x';
